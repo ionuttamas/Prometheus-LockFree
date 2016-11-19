@@ -1,0 +1,51 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prometheus.Domain", "Prometheus.Domain\Prometheus.Domain.csproj", "{81CC4D2C-BA4E-4415-A6E8-4A12D83EC555}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prometheus.Services", "Prometheus.Services\Prometheus.Services.csproj", "{1FCABFBC-1056-4D24-BC5F-98701D67283B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prometheus.Services.UnitTests", "Prometheus.Services.UnitTests\Prometheus.Services.UnitTests.csproj", "{361900EB-FA3A-4D3E-B9E5-7A6D6E81875B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Client", "Client", "{52A2CB44-C42B-4BEF-B541-22804C4C7375}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prometheus.Client.CommandLine", "Prometheus.Client.CommandLine\Prometheus.Client.CommandLine.csproj", "{2F2CF73F-CBC0-4A82-A248-39655C0A8981}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prometheus.Common", "Prometheus.Common\Prometheus.Common.csproj", "{F200B631-D0AF-4FC0-9721-8472BEAAD337}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{81CC4D2C-BA4E-4415-A6E8-4A12D83EC555}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81CC4D2C-BA4E-4415-A6E8-4A12D83EC555}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81CC4D2C-BA4E-4415-A6E8-4A12D83EC555}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81CC4D2C-BA4E-4415-A6E8-4A12D83EC555}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FCABFBC-1056-4D24-BC5F-98701D67283B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FCABFBC-1056-4D24-BC5F-98701D67283B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FCABFBC-1056-4D24-BC5F-98701D67283B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FCABFBC-1056-4D24-BC5F-98701D67283B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{361900EB-FA3A-4D3E-B9E5-7A6D6E81875B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{361900EB-FA3A-4D3E-B9E5-7A6D6E81875B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{361900EB-FA3A-4D3E-B9E5-7A6D6E81875B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{361900EB-FA3A-4D3E-B9E5-7A6D6E81875B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F2CF73F-CBC0-4A82-A248-39655C0A8981}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F2CF73F-CBC0-4A82-A248-39655C0A8981}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F2CF73F-CBC0-4A82-A248-39655C0A8981}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F2CF73F-CBC0-4A82-A248-39655C0A8981}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F200B631-D0AF-4FC0-9721-8472BEAAD337}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F200B631-D0AF-4FC0-9721-8472BEAAD337}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F200B631-D0AF-4FC0-9721-8472BEAAD337}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F200B631-D0AF-4FC0-9721-8472BEAAD337}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2F2CF73F-CBC0-4A82-A248-39655C0A8981} = {52A2CB44-C42B-4BEF-B541-22804C4C7375}
+	EndGlobalSection
+EndGlobal
