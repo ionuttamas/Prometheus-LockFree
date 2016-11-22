@@ -19,9 +19,9 @@ namespace Prometheus.Services.Model
             get { return Operations.FirstOrDefault(x => x.Name == name); }
         }
 
-        public void AddGlobalVariable(string name)
+        public void AddGlobalVariable(Variable variable)
         {
-            GlobalState.Add(name);
+            GlobalState.Add(variable);
         }
 
         public void AddOperation(string name)
@@ -32,9 +32,9 @@ namespace Prometheus.Services.Model
             Operations.Add(operation);
         }
 
-        public void AddOperation(string name, string variableName, List<string> dependentVariables) {
+        public void AddOperation(string name, string variableName, string type, List<string> dependentVariables) {
             AddOperation(name);
-            this[name].AddVariable(variableName, dependentVariables);
+            this[name].AddVariable(variableName, type, dependentVariables);
         }
 
         public void ProcessDependencies()
@@ -49,13 +49,14 @@ namespace Prometheus.Services.Model
         {
             List<string> operationVariables = GlobalState
                 .Variables
+                .Select(x=>x.Name)
                 .Except(operation.LocalVariables.Select(x => x.Name))
                 .ToList();
 
             foreach (var localVariable in operation.LocalVariables)
             {
                 localVariable.DependentVariables
-                    .RemoveWhere(x => !operationVariables.Contains(x) && !GlobalState.Variables.Contains(x));
+                    .RemoveWhere(x => !operationVariables.Contains(x) && !GlobalState.Contains(x));
                 localVariable.DependentVariables
                     .RemoveWhere(x => x == localVariable.Name);
             }

@@ -1,17 +1,15 @@
 using Antlr4.Runtime.Tree;
-using Prometheus.Services.Parser;
-using Prometheus.Domain;
 using Prometheus.Services.Model;
 
 namespace Prometheus.Services
 {
     public class Analyzer
     {
-        private readonly CodeVisitor _visitor;
+        private readonly DataStructureExtractor _extractor;
 
         public Analyzer()
         {
-            _visitor = new CodeVisitor(new DataStructure());
+            _extractor = new DataStructureExtractor(new DataStructure());
         }
 
         /// <summary>
@@ -19,9 +17,9 @@ namespace Prometheus.Services
         /// </summary>
         public State GetState(IParseTree codeTree)
         {
-            _visitor.Visit(codeTree);
+            _extractor.Visit(codeTree);
 
-            return _visitor.DataStructure.GlobalState;
+            return _extractor.DataStructure.GlobalState;
         }
     }
 }

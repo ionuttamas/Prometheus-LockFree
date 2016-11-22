@@ -49,7 +49,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Analyzer\Analyzer.cs" />
+    <Compile Include="Analyzer\CodeGenerator.cs" />
     <Compile Include="Analyzer\CodeVisitor.cs" />
+    <Compile Include="Analyzer\DataStructureExtractor.cs" />
     <Compile Include="Extensions\RuleContextExtensions.cs" />
     <Compile Include="Model\Variable.cs" />
     <Compile Include="Model\Operation.cs" />
@@ -74,6 +76,10 @@
     </Antlr4>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Prometheus.Common\Prometheus.Common.csproj">
+      <Project>{F200B631-D0AF-4FC0-9721-8472BEAAD337}</Project>
+      <Name>Prometheus.Common</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Prometheus.Domain\Prometheus.Domain.csproj">
       <Project>{81CC4D2C-BA4E-4415-A6E8-4A12D83EC555}</Project>
       <Name>Prometheus.Domain</Name>

@@ -40,10 +40,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Type\IType.cs" />
-    <Compile Include="Type\PointerType.cs" />
-    <Compile Include="Type\StructType.cs" />
-    <Compile Include="Type\PrimitiveType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

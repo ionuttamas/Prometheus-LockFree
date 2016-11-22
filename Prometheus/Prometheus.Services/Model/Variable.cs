@@ -6,14 +6,16 @@ namespace Prometheus.Services.Model
     public class Variable
     {
         public string Name { get; }
-        public string Operation { get; }
+        public string Type { get; }
+        public string Operation { get; } //TODO: check if needed
         public bool LinksToGlobalState { get; set; }
         public HashSet<string> DependentVariables { get; set; }
 
-        public Variable(string name, string operation)
+        public Variable(string name, string type, string operation)
         {
             Name = name;
             Operation = operation;
+            Type = type;
         }
 
         public override bool Equals(object obj)
@@ -24,6 +26,9 @@ namespace Prometheus.Services.Model
             var variable = (Variable)obj;
 
             if (Name != variable.Name)
+                return false;
+
+            if (Type != variable.Type)
                 return false;
 
             if (LinksToGlobalState != variable.LinksToGlobalState)

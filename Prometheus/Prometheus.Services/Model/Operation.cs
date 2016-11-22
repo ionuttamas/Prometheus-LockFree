@@ -19,13 +19,13 @@ namespace Prometheus.Services.Model
             LocalVariables = variables;
         }
 
-        public void AddVariable(string name, List<string> dependantVariables)
+        public void AddVariable(string name, string type, List<string> dependantVariables)
         {
             Variable variable = this[name];
 
             if (variable == null)
             {
-                var localVariable = new Variable(name, Name)
+                var localVariable = new Variable(name, type, Name)
                 {
                     DependentVariables = new HashSet<string>(dependantVariables)
                 };
