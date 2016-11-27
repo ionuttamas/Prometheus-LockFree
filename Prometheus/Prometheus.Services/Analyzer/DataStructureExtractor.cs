@@ -114,8 +114,11 @@ namespace Prometheus.Services
                 Variable variable = new Variable(variableName, type, string.Empty);
 
                 DataStructure.AddGlobalVariable(variable);
-            } else {
-                var functionName = function.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName();
+            }
+            else
+            {
+                var functionName =
+                    function.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName();
 
                 DataStructure.AddOperation(functionName, context.GetName(), type, new List<string>());
             }
