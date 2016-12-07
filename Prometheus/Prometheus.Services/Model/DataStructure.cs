@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -5,6 +6,7 @@ namespace Prometheus.Services.Model
 {
     public class DataStructure
     {
+        public List<Structure> Structures { get; set; }
         public State GlobalState { get; set; }
         public List<Operation> Operations { get; set; }
 
@@ -12,11 +14,20 @@ namespace Prometheus.Services.Model
         {
             GlobalState = new State();
             Operations = new List<Operation>();
+            Structures = new List<Structure>();
         }
 
         public Operation this[string name]
         {
             get { return Operations.FirstOrDefault(x => x.Name == name); }
+        }
+
+        public void AddStructure(Structure structure)
+        {
+            if (Structures.Any(x => x.Name == structure.Name))
+                return;
+
+            Structures.Add(structure);
         }
 
         public void AddGlobalVariable(Variable variable)

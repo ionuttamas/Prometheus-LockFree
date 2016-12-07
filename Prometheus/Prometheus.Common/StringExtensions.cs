@@ -17,6 +17,11 @@ namespace Prometheus.Common {
             return value.IndexOf(token, StringComparison.InvariantCultureIgnoreCase);
         }
 
+        public static int InvariantLastIndexOf(this string value, string token)
+        {
+            return value.LastIndexOf(token, StringComparison.InvariantCultureIgnoreCase);
+        }
+
         public static string JoinBy<T>(this IEnumerable<T> value, string separator) {
             return string.Join(separator, value);
         }

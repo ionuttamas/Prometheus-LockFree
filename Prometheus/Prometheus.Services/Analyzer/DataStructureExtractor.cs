@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Antlr4.Runtime;
+using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
 using Prometheus.Services.Extensions;
 using Prometheus.Services.Model;
@@ -13,14 +14,23 @@ namespace Prometheus.Services
     public class DataStructureExtractor : CodeVisitor
     {
         private const string EQUALS_TOKEN = "=";
+        private const string POINTER_TOKEN = "*";
         private const string SEMICOLUMN_TOKEN = ";";
         private const string STRUCT_TOKEN = "struct";
+        private const string SEPARATOR_TOKEN = " ";
 
         public DataStructureExtractor(DataStructure dataStructure) {
             DataStructure = dataStructure;
         }
 
         public DataStructure DataStructure { get; }
+
+        public override object VisitStructDeclarationList(CLanguageParser.StructDeclarationListContext context)
+        {
+            DataStructure.AddStructure(GetStructureType(context));
+
+            return base.VisitStructDeclarationList(context);
+        }
 
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context) {
             string functionName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName();
@@ -135,7 +145,40 @@ namespace Prometheus.Services
             DataStructure.ProcessDependencies();
         }
 
-        private string GetType(ParserRuleContext context, string variableName)
+        private Structure GetStructureType(CLanguageParser.StructDeclarationListContext context)
+        {
+            var structure = new Structure();
+            var declarations = context.GetLeafDescendants(x => x is CLanguageParser.StructDeclarationContext).Select(x=>(CLanguageParser.StructDeclarationContext)x);
+            var specifierContext = context.GetAncestor(x => x is CLanguageParser.StructOrUnionSpecifierContext);
+            structure.Name = specifierContext.GetChild(1).GetText();
+
+            foreach (var declaration in declarations)
+            {
+                string text = declaration.Start.InputStream.GetText(Interval.Of(declaration.Start.StartIndex, declaration.Stop.StopIndex));
+                int index = text.InvariantLastIndexOf(SEPARATOR_TOKEN);
+                string type = text.Substring(0, index).Trim(SEPARATOR_TOKEN);
+                string name = text.Substring(index + 1).TrimEnd(SEMICOLUMN_TOKEN).Trim(SEPARATOR_TOKEN);
+                int pointerIndex = name.InvariantLastIndexOf(POINTER_TOKEN);
+
+                if (pointerIndex >= 0)
+                {
+                    type += name.Substring(0, pointerIndex+1);
+                    name = name.TrimStart(POINTER_TOKEN);
+                }
+
+                var field = new Field
+                {
+                    Type = type,
+                    Name = name
+                };
+
+                structure.Fields.Add(field);
+            }
+
+            return structure;
+        }
+
+        private static string GetType(ParserRuleContext context, string variableName)
         {
             var declarationContext = context.GetAncestor(x => x is CLanguageParser.DeclarationContext);
 

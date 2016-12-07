@@ -26,6 +26,7 @@ namespace Prometheus.Services.UnitTests
         {
             get
             {
+
                 #region First case
                 yield return new TestCaseData(@"struct node {
                                                    int data;
@@ -233,6 +234,34 @@ namespace Prometheus.Services.UnitTests
 
                                                    return tempLink;
                                                 }
+
+                                                main() {
+                                                }",
+                            new[] { "head", "current" },
+                            new[]
+                            {
+                                new Operation("deleteFirst", new List<Variable>
+                                    {
+                                        new Variable("tempLink", "struct node*", "deleteFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
+                                    }
+                                ),
+                                new Operation("main")
+                            });
+                #endregion
+
+                #region Fifth case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   int key;
+                                                   struct node *next;
+                                                   struct node **vector;
+                                                };
+
+                                                struct infoStruct {
+                                                   int* vectorData;
+                                                   struct node *next;
+                                                   struct node **vectorPointers;
+                                                };
 
                                                 main() {
                                                 }",

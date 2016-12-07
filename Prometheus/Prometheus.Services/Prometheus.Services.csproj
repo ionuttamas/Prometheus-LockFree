@@ -53,6 +53,8 @@
     <Compile Include="Analyzer\CodeVisitor.cs" />
     <Compile Include="Analyzer\DataStructureExtractor.cs" />
     <Compile Include="Extensions\RuleContextExtensions.cs" />
+    <Compile Include="Model\Field.cs" />
+    <Compile Include="Model\Structure.cs" />
     <Compile Include="Model\Variable.cs" />
     <Compile Include="Model\Operation.cs" />
     <Compile Include="Model\State.cs" />
