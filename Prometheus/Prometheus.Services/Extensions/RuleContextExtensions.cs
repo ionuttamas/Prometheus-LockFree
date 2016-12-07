@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using Prometheus.Services.Parser;
@@ -23,11 +24,11 @@ namespace Prometheus.Services.Extensions {
         }
 
         public static List<RuleContext> GetDescendants(this RuleContext context, Func<RuleContext, bool> filter) {
-            if (filter(context)) {
-                return new List<RuleContext> { context };
-            }
-
             var result = new List<RuleContext>();
+
+            if (filter(context)) {
+                result.Add(context);
+            }
 
             for (int i = 0; i < context.ChildCount; i++) {
                 if (context.GetChild(i) is RuleContext) {
@@ -40,6 +41,23 @@ namespace Prometheus.Services.Extensions {
             }
 
             return result;
+        }
+
+        public static List<RuleContext> GetLeafDescendants(this RuleContext context, Func<RuleContext, bool> filter)
+        {
+            var descendants = Enumerable
+                .Range(0, context.ChildCount)
+                .Select(context.GetChild)
+                .OfType<RuleContext>()
+                .SelectMany(x => x.GetLeafDescendants(filter))
+                .ToList();
+
+            if (filter(context) && !descendants.Any())
+            {
+                return new List<RuleContext> {context};
+            }
+
+            return descendants;
         }
 
         public static T GetFirstDescendant<T>(this RuleContext context, Func<RuleContext, bool> filter)

@@ -19,7 +19,7 @@ namespace Prometheus.Services
             _tokenStream = new CommonTokenStream(_lexer);
             _parser = new CLanguageParser(_tokenStream);
             var tree = _parser.compilationUnit();
-            Console.WriteLine(tree.ToStringTree(_parser));
+            //Console.WriteLine(tree.ToStringTree(_parser));
             PreVisit(tree, input);
             Visit(tree);
             PostVisit(tree, input);
