@@ -8,11 +8,12 @@ namespace Prometheus.Services.UnitTests
     public class DataStructureExtractorTests
     {
         [TestCaseSource(nameof(DataStructureCases))]
-        public void DataStructureExtractor_ExtractsDataStructure_PerformsCorrectly(string codeInput, string[] globalVariables, Operation[] operations)
+        public void DataStructureExtractor_ExtractsDataStructure_PerformsCorrectly(string codeInput, string[] globalVariables, Structure[] structures, Operation[] operations)
         {
             var codeVisitor = new DataStructureExtractor(new DataStructure());
             codeVisitor.Visit(codeInput);
             Assert.True(globalVariables.All(x => codeVisitor.DataStructure.GlobalState.Contains(x)));
+            Assert.True(structures.All(x => codeVisitor.DataStructure.Structures.Contains(x)));
 
             foreach (var operation in operations)
             {
@@ -52,6 +53,15 @@ namespace Prometheus.Services.UnitTests
                                                 int main() {
                                                 }",
                             new[] { "globalFirst", "globalSecond", "head" },
+                            new[] { new Structure("node")
+                            {
+                                Fields = new List<Field>
+                                {
+                                    new Field("int", "data"),
+                                    new Field("int", "key"),
+                                    new Field("struct node *", "next")
+                                }
+                            } },
                             new[]
                             {
                         new Operation("insertFirst", new List<Variable>
@@ -139,6 +149,15 @@ namespace Prometheus.Services.UnitTests
                                                 main() {
                                                 }",
                             new[] { "head", "current" },
+                            new[] { new Structure("node")
+                            {
+                                Fields = new List<Field>
+                                {
+                                    new Field("int", "data"),
+                                    new Field("int", "key"),
+                                    new Field("struct node *", "next")
+                                }
+                            } },
                             new[]
                             {
                         new Operation("insertFirst", new List<Variable>
@@ -206,6 +225,15 @@ namespace Prometheus.Services.UnitTests
                                                 main() {
                                                 }",
                             new[] { "head", "current" },
+                            new[] { new Structure("node")
+                            {
+                                Fields = new List<Field>
+                                {
+                                    new Field("int", "data"),
+                                    new Field("int", "key"),
+                                    new Field("struct node *", "next")
+                                }
+                            } },
                             new[]
                             {
                                 new Operation("delete", new List<Variable>
@@ -238,6 +266,15 @@ namespace Prometheus.Services.UnitTests
                                                 main() {
                                                 }",
                             new[] { "head", "current" },
+                            new[] { new Structure("node")
+                            {
+                                Fields = new List<Field>
+                                {
+                                    new Field("int", "data"),
+                                    new Field("int", "key"),
+                                    new Field("struct node *", "next")
+                                }
+                            } },
                             new[]
                             {
                                 new Operation("deleteFirst", new List<Variable>
@@ -265,14 +302,29 @@ namespace Prometheus.Services.UnitTests
 
                                                 main() {
                                                 }",
-                            new[] { "head", "current" },
+                            new string[] { },
+                            new[] { new Structure("node")
+                            {
+                                Fields = new List<Field>
+                                {
+                                    new Field("int", "data"),
+                                    new Field("int", "key"),
+                                    new Field("struct node *", "next"),
+                                    new Field("struct node **", "vector")
+                                }
+                            },
+                            new Structure("infoStruct")
+                            {
+                                Fields = new List<Field>
+                                {
+                                    new Field("int*", "vectorData"),
+                                    new Field("struct node *", "next"),
+                                    new Field("struct node **", "vectorPointers")
+                                }
+                            },
+                            },
                             new[]
                             {
-                                new Operation("deleteFirst", new List<Variable>
-                                    {
-                                        new Variable("tempLink", "struct node*", "deleteFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
-                                    }
-                                ),
                                 new Operation("main")
                             });
                 #endregion

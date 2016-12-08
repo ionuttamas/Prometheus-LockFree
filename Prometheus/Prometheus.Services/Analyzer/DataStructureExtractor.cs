@@ -147,10 +147,9 @@ namespace Prometheus.Services
 
         private Structure GetStructureType(CLanguageParser.StructDeclarationListContext context)
         {
-            var structure = new Structure();
             var declarations = context.GetLeafDescendants(x => x is CLanguageParser.StructDeclarationContext).Select(x=>(CLanguageParser.StructDeclarationContext)x);
             var specifierContext = context.GetAncestor(x => x is CLanguageParser.StructOrUnionSpecifierContext);
-            structure.Name = specifierContext.GetChild(1).GetText();
+            var structure = new Structure(specifierContext.GetChild(1).GetText());
 
             foreach (var declaration in declarations)
             {
@@ -166,11 +165,7 @@ namespace Prometheus.Services
                     name = name.TrimStart(POINTER_TOKEN);
                 }
 
-                var field = new Field
-                {
-                    Type = type,
-                    Name = name
-                };
+                var field = new Field(type, name);
 
                 structure.Fields.Add(field);
             }
