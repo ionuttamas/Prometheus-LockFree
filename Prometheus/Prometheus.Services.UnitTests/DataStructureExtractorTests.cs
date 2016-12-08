@@ -68,7 +68,7 @@ namespace Prometheus.Services.UnitTests
                             {
                                 new Variable("localFirst", "int", "insertFirst") {DependentVariables = new HashSet<string>(), LinksToGlobalState = false},
                                 new Variable("localSecond", "int", "insertFirst") {DependentVariables = new HashSet<string>(), LinksToGlobalState = false},
-                                new Variable("localThird", "struct node*", "insertFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
+                                new Variable("localThird", "struct node *", "insertFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
                             }
                         ),
                         new Operation("main")
@@ -163,23 +163,23 @@ namespace Prometheus.Services.UnitTests
                         new Operation("insertFirst", new List<Variable>
                             {
                                 new Variable("variable", "int", "insertFirst") {DependentVariables = new HashSet<string>(), LinksToGlobalState = false},
-                                new Variable("link", "struct node*", "insertFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
+                                new Variable("link", "struct node *", "insertFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
                             }
                         ),
                         new Operation("deleteFirst", new List<Variable>
                             {
-                                new Variable("tempLink", "struct node*", "deleteFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
+                                new Variable("tempLink", "struct node *", "deleteFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
                             }
                         ),
                         new Operation("find", new List<Variable>
                             {
-                                new Variable("current", "struct node*", "find") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
+                                new Variable("current", "struct node *", "find") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
                             }
                         ),
                         new Operation("delete", new List<Variable>
                             {
-                                new Variable("current", "struct node*", "delete") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
-                                new Variable("previous", "struct node*", "delete") {DependentVariables = new HashSet<string> {"current"}, LinksToGlobalState = true},
+                                new Variable("current", "struct node *", "delete") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
+                                new Variable("previous", "struct node *", "delete") {DependentVariables = new HashSet<string> {"current"}, LinksToGlobalState = true},
                             }
                         ),
                         new Operation("main")
@@ -238,8 +238,8 @@ namespace Prometheus.Services.UnitTests
                             {
                                 new Operation("delete", new List<Variable>
                                     {
-                                        new Variable("current", "struct node*", "delete") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
-                                        new Variable("previous", "struct node*", "delete") {DependentVariables = new HashSet<string> {"current"}, LinksToGlobalState = true},
+                                        new Variable("current", "struct node *", "delete") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
+                                        new Variable("previous", "struct node *", "delete") {DependentVariables = new HashSet<string> {"current"}, LinksToGlobalState = true},
                                     }
                                 ),
                                 new Operation("main")
@@ -279,7 +279,7 @@ namespace Prometheus.Services.UnitTests
                             {
                                 new Operation("deleteFirst", new List<Variable>
                                     {
-                                        new Variable("tempLink", "struct node*", "deleteFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
+                                        new Variable("tempLink", "struct node *", "deleteFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
                                     }
                                 ),
                                 new Operation("main")
@@ -295,7 +295,7 @@ namespace Prometheus.Services.UnitTests
                                                 };
 
                                                 struct infoStruct {
-                                                   int* vectorData;
+                                                   int * vectorData;
                                                    struct node *next;
                                                    struct node **vectorPointers;
                                                 };
@@ -317,7 +317,7 @@ namespace Prometheus.Services.UnitTests
                             {
                                 Fields = new List<Field>
                                 {
-                                    new Field("int*", "vectorData"),
+                                    new Field("int *", "vectorData"),
                                     new Field("struct node *", "next"),
                                     new Field("struct node **", "vectorPointers")
                                 }

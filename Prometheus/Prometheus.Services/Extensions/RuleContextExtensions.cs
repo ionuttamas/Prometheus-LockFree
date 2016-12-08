@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Antlr4.Runtime;
+using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
 using Prometheus.Services.Parser;
 
@@ -14,6 +15,13 @@ namespace Prometheus.Services.Extensions {
 
         public static string GetName(this RuleContext context) {
             return ((ParserRuleContext)context).GetName();
+        }
+
+        public static string GetContextText(this ParserRuleContext context)
+        {
+            string text = context.Start.InputStream.GetText(Interval.Of(context.Start.StartIndex, context.Stop.StopIndex));
+
+            return text;
         }
 
         public static CLanguageParser.FunctionDefinitionContext GetFunction(this RuleContext context)

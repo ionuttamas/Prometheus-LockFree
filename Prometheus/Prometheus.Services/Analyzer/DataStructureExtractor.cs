@@ -16,7 +16,6 @@ namespace Prometheus.Services
         private const string EQUALS_TOKEN = "=";
         private const string POINTER_TOKEN = "*";
         private const string SEMICOLUMN_TOKEN = ";";
-        private const string STRUCT_TOKEN = "struct";
         private const string SEPARATOR_TOKEN = " ";
 
         public DataStructureExtractor(DataStructure dataStructure) {
@@ -77,7 +76,7 @@ namespace Prometheus.Services
 
             if (function == null)
             {
-                string type = GetType(context, variableName);
+                string type = GetType(context);
                 Variable variable = new Variable(variableName, type, string.Empty);
 
                 DataStructure.AddGlobalVariable(variable);
@@ -102,7 +101,7 @@ namespace Prometheus.Services
                     dependentTokens = new List<string>();
                 }
 
-                string type = GetType(context, variableName);
+                string type = GetType(context);
 
                 DataStructure.AddOperation(functionName, variableName, type, dependentTokens);
             }
@@ -117,7 +116,7 @@ namespace Prometheus.Services
 
             var function = context.GetFunction();
             string variableName = context.GetName();
-            string type = GetType(context, variableName);
+            string type = GetType(context);
 
             if (function == null)
             {
@@ -127,8 +126,9 @@ namespace Prometheus.Services
             }
             else
             {
-                var functionName =
-                    function.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName();
+                var functionName = function
+                    .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext)
+                    .GetName();
 
                 DataStructure.AddOperation(functionName, context.GetName(), type, new List<string>());
             }
@@ -153,7 +153,7 @@ namespace Prometheus.Services
 
             foreach (var declaration in declarations)
             {
-                string text = declaration.Start.InputStream.GetText(Interval.Of(declaration.Start.StartIndex, declaration.Stop.StopIndex));
+                string text = declaration.GetContextText();
                 int index = text.InvariantLastIndexOf(SEPARATOR_TOKEN);
                 string type = text.Substring(0, index).Trim(SEPARATOR_TOKEN);
                 string name = text.Substring(index + 1).TrimEnd(SEMICOLUMN_TOKEN).Trim(SEPARATOR_TOKEN);
@@ -173,17 +173,16 @@ namespace Prometheus.Services
             return structure;
         }
 
-        private static string GetType(ParserRuleContext context, string variableName)
+        private static string GetType(ParserRuleContext context)
         {
-            var declarationContext = context.GetAncestor(x => x is CLanguageParser.DeclarationContext);
+            var declarationContext = (ParserRuleContext)context.GetAncestor(x => x is CLanguageParser.DeclarationContext);
 
             if (declarationContext == null)
             {
                 throw  new InvalidOperationException($"Could not get the type for context \"{context.GetName()}\"");
             }
 
-            string result = string.Empty;
-            string text = declarationContext.GetText();
+            string text = declarationContext.GetContextText();
 
             if (text.ContainsInvariant(SEMICOLUMN_TOKEN)) {
                 text = text.TrimEnd(SEMICOLUMN_TOKEN);
@@ -191,18 +190,23 @@ namespace Prometheus.Services
 
             if (text.ContainsInvariant(EQUALS_TOKEN))
             {
-                text = text.TrimEnd(EQUALS_TOKEN);
+                text = text.Substring(0, text.InvariantLastIndexOf(EQUALS_TOKEN));
             }
 
-            text = text.Substring(0, text.InvariantIndexOf(variableName));
+            text = text.TrimEnd(SEPARATOR_TOKEN);
 
-            if (text.Contains(STRUCT_TOKEN))
+            string result;
+
+            if (text.Contains(POINTER_TOKEN))
             {
-                result = string.Format("{0} ",STRUCT_TOKEN);
-                text = text.TrimStart(STRUCT_TOKEN);
+                result = string.Format("{0} {1}",
+                    text.Substring(0, text.InvariantIndexOf(POINTER_TOKEN)).TrimEnd(SEPARATOR_TOKEN),
+                    text.Substring(text.InvariantIndexOf(POINTER_TOKEN), text.InvariantLastIndexOf(POINTER_TOKEN)-text.InvariantIndexOf(POINTER_TOKEN) + 1));
             }
-
-            result += text;
+            else
+            {
+                result = text.Substring(0, text.InvariantLastIndexOf(SEPARATOR_TOKEN));
+            }
 
             return result;
         }
