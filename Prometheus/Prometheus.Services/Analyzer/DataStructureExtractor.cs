@@ -136,11 +136,11 @@ namespace Prometheus.Services
             return base.VisitTypedefName(context);
         }
 
-        public override void PreVisit(IParseTree tree, string input)
+        protected override void PreVisit(IParseTree tree, string input)
         {
         }
 
-        public override void PostVisit(IParseTree tree, string input)
+        protected override void PostVisit(IParseTree tree, string input)
         {
             DataStructure.ProcessDependencies();
         }
@@ -207,6 +207,8 @@ namespace Prometheus.Services
             {
                 result = text.Substring(0, text.InvariantLastIndexOf(SEPARATOR_TOKEN));
             }
+
+            result = result.RemoveDuplicateSpaces();
 
             return result;
         }

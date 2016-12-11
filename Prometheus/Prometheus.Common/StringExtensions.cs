@@ -6,6 +6,18 @@ namespace Prometheus.Common {
     public static class StringExtensions {
         private static readonly Regex DuplicateSpacesRegex = new Regex(@"[ ]{2,}", RegexOptions.None);
 
+        public static string InsertAtIndex(this string text, string value, int index)
+        {
+            string result = $"{text.Substring(0, index)}{value}{text.Substring(index + 1)}";
+
+            return result;
+        }
+
+        public static string[] Split(this string value, string separator)
+        {
+            return value.Split(new[] {separator}, StringSplitOptions.RemoveEmptyEntries);
+        }
+
         public static bool IsNullOrEmpty(this string value) {
             bool isNullOrEmpty = string.IsNullOrEmpty(value);
 
@@ -64,7 +76,7 @@ namespace Prometheus.Common {
                 return null;
 
             if (input.Length > 1)
-                return char.ToUpper(input[0]) + input.Substring(1).ToLowerInvariant();
+                return char.ToUpper(input[0]) + input.Substring(1);
 
             return input.ToUpper();
         }

@@ -1,57 +1,89 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Antlr4.Runtime.Tree;
+using Prometheus.Common;
 using Prometheus.Services.Extensions;
+using Prometheus.Services.Model;
 using Prometheus.Services.Parser;
+using Prometheus.Services.Service;
 
 namespace Prometheus.Services
 {
     public class CodeGenerator : CodeVisitor
     {
-        private readonly StringBuilder _builder;
+        private readonly CodeGenerationService _generationService;
+        private readonly CodeUpdateTable _updateTable;
 
-        public CodeGenerator()
+        public string CodeOutput { get; private set; }
+
+        public CodeGenerator(CodeGenerationService generationService)
         {
-            _builder = new StringBuilder();
+            _generationService = generationService;
+            _updateTable = new CodeUpdateTable();
         }
 
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context)
         {
-            IEnumerable<RelationalExpression> relations = context
+            KeyValuePair<int, string> update = _generationService.GetSnapshotDeclarations(context);
+
+            if (!string.IsNullOrEmpty(update.Value))
+            {
+                _updateTable.Add(update.Key, update.Value);
+            }
+
+            /*IEnumerable<RelationalExpression> relations = context
                 .expression()
                 .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
                 .Select(x=>(CLanguageParser.EqualityExpressionContext)x.Parent)
                 .Select(GetRelationalExpression);
 
-            Console.WriteLine(string.Join(",", relations.Select(x=>x.LeftOperand +" and "+x.RightOperand)));
+            Console.WriteLine(string.Join(",", relations.Select(x=>x.LeftOperand +" and "+x.RightOperand)));*/
             return base.VisitSelectionStatement(context);
         }
 
-        public override void PreVisit(IParseTree tree, string input)
+        protected override void PreVisit(IParseTree tree, string input)
         {
         }
 
-        public override void PostVisit(IParseTree tree, string input)
+        protected override void PostVisit(IParseTree tree, string input)
         {
-        }
+            CodeOutput = input;
+            int offset = 0;
 
-        private RelationalExpression GetRelationalExpression(CLanguageParser.EqualityExpressionContext context)
-        {
-            var result = new RelationalExpression
+            foreach (var update in _updateTable)
             {
-                LeftOperand = context.equalityExpression().relationalExpression().GetText(),
-                RightOperand = context.relationalExpression().GetText()
-            };
-
-            return result;
+                string declarations = update.Value;
+                input.InsertAtIndex(declarations, offset);
+                offset += declarations.Length;
+            }
         }
 
-        private class RelationalExpression
+        private class CodeUpdateTable : IEnumerable<KeyValuePair<int, string>>
         {
-            public string LeftOperand { get; set; }
-            public string RightOperand { get; set; }
+            private readonly Dictionary<int, string> _updates;
+
+            public CodeUpdateTable()
+            {
+                _updates = new Dictionary<int, string>();
+            }
+
+            public void Add(int index, string code)
+            {
+                _updates[index] = code;
+            }
+
+            public IEnumerator<KeyValuePair<int, string>> GetEnumerator()
+            {
+                return _updates.OrderBy(x => x.Key).GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
         }
     }
 }

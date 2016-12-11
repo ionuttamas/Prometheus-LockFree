@@ -25,7 +25,7 @@ namespace Prometheus.Services
             PostVisit(tree, input);
         }
 
-        public abstract void PreVisit(IParseTree tree, string input);
-        public abstract void PostVisit(IParseTree tree, string input);
+        protected abstract void PreVisit(IParseTree tree, string input);
+        protected abstract void PostVisit(IParseTree tree, string input);
     }
 }

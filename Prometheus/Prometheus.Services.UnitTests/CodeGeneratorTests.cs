@@ -8,7 +8,7 @@ namespace Prometheus.Services.UnitTests
     public class CodeGeneratorTests {
         [TestCaseSource(nameof(CodeGeneratorCases))]
         public void CodeGenerator_IdentifiesRelationalExpressions_Correctly(string codeInput, string[] globalVariables, Operation[] operations) {
-            var codeVisitor = new CodeGenerator();
+            var codeVisitor = new CodeGenerator(null);
             codeVisitor.Visit(codeInput);
         }
 
