@@ -9,7 +9,7 @@ namespace Prometheus.Services
 
         public Analyzer()
         {
-            _extractor = new DataStructureExtractor(new DataStructure());
+            _extractor = new DataStructureExtractor();
         }
 
         /// <summary>

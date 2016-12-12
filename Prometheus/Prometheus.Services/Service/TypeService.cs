@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 using Prometheus.Common;
 using Prometheus.Services.Model;
 
@@ -40,18 +39,22 @@ namespace Prometheus.Services.Service {
         private string GetStructureVariableType(string expression, string operation) {
             string[] referenceTokens = expression.Split(POINTER_ACCESS_MARKER);
             string currentType = GetSimpleVariableType(referenceTokens[0], operation);
-            Structure structure = _dataStructure.Structures.First(x => currentType.EndsWith(x.Name));
+            string trimmedType = currentType.TrimEnd(POINTER_MARKER).TrimEnd();
+            Structure structure = _dataStructure.Structures.First(x => trimmedType.EndsWith(x.Name));
 
             foreach (var token in referenceTokens.Skip(1)) {
                 currentType = structure[token].Type;
+                trimmedType = structure[token].Type.TrimEnd(POINTER_MARKER).TrimEnd();
 
                 if (IsStructure(currentType))
                 {
-                    structure = _dataStructure.Structures.First(x => currentType.TrimEnd(POINTER_MARKER).EndsWith(x.Name));
+                    structure = _dataStructure.Structures.First(x => trimmedType.EndsWith(x.Name));
                 }
             }
 
-            return currentType;
+            return currentType.Contains(POINTER_MARKER) ?
+                $"{currentType.Substring(0, currentType.InvariantIndexOf(POINTER_MARKER))} {currentType.Substring(currentType.InvariantIndexOf(POINTER_MARKER))}" :
+                currentType;
         }
     }
 }

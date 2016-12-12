@@ -56,7 +56,7 @@ namespace Prometheus.Services.Service {
             if (_dataStructure.GlobalState.Contains(variable) || _dataStructure[operation][variable].LinksToGlobalState)
             {
                 string type = _typeService.GetType(expression, operation);
-                declaration =  $"{type}{GetSnapshotName(expression)}";
+                declaration =  $"{type} {GetSnapshotName(expression)} = {expression};";
 
                 return true;
             }
@@ -75,8 +75,9 @@ namespace Prometheus.Services.Service {
         private RelationalExpression GetRelationalExpression(CLanguageParser.EqualityExpressionContext context) {
             var result = new RelationalExpression {
                 LeftOperand = context.equalityExpression().relationalExpression().GetText(),
-                RightOperand = context.relationalExpression().GetText()
-            };
+                RightOperand = context.relationalExpression().GetText(),
+                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName()
+        };
 
             return result;
         }

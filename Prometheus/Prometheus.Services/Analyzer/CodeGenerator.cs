@@ -34,13 +34,6 @@ namespace Prometheus.Services
                 _updateTable.Add(update.Key, update.Value);
             }
 
-            /*IEnumerable<RelationalExpression> relations = context
-                .expression()
-                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
-                .Select(x=>(CLanguageParser.EqualityExpressionContext)x.Parent)
-                .Select(GetRelationalExpression);
-
-            Console.WriteLine(string.Join(",", relations.Select(x=>x.LeftOperand +" and "+x.RightOperand)));*/
             return base.VisitSelectionStatement(context);
         }
 
@@ -51,12 +44,16 @@ namespace Prometheus.Services
         protected override void PostVisit(IParseTree tree, string input)
         {
             CodeOutput = input;
+
+            if(!_updateTable.Any())
+                return;
+            //todo: fix indenting
             int offset = 0;
 
             foreach (var update in _updateTable)
             {
                 string declarations = update.Value;
-                input.InsertAtIndex(declarations, offset);
+                CodeOutput = CodeOutput.InsertAtIndex(declarations, update.Key + offset);
                 offset += declarations.Length;
             }
         }

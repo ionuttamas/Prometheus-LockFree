@@ -10,7 +10,7 @@ namespace Prometheus.Services.UnitTests
         [TestCaseSource(nameof(DataStructureCases))]
         public void DataStructureExtractor_ExtractsDataStructure_PerformsCorrectly(string codeInput, string[] globalVariables, Structure[] structures, Operation[] operations)
         {
-            var codeVisitor = new DataStructureExtractor(new DataStructure());
+            var codeVisitor = new DataStructureExtractor();
             codeVisitor.Visit(codeInput);
             Assert.True(globalVariables.All(x => codeVisitor.DataStructure.GlobalState.Contains(x)));
             Assert.True(structures.All(x => codeVisitor.DataStructure.Structures.Contains(x)));

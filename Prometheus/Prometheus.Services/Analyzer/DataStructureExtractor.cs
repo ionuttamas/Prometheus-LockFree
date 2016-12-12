@@ -18,8 +18,8 @@ namespace Prometheus.Services
         private const string SEMICOLUMN_TOKEN = ";";
         private const string SEPARATOR_TOKEN = " ";
 
-        public DataStructureExtractor(DataStructure dataStructure) {
-            DataStructure = dataStructure;
+        public DataStructureExtractor() {
+            DataStructure = new DataStructure();
         }
 
         public DataStructure DataStructure { get; }
