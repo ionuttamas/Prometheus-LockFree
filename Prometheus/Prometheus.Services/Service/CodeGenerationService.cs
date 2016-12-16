@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Prometheus.Common;
@@ -23,13 +24,13 @@ namespace Prometheus.Services.Service {
         public KeyValuePair<int, string> GetSnapshotDeclarations(CLanguageParser.SelectionStatementContext context)
         {
             int index = context.Start.StartIndex;
-            var builder = new StringBuilder();
             List<RelationalExpression> relationalExpressions = context
                 .expression()
                 .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
                 .Select(x => (CLanguageParser.EqualityExpressionContext) x.Parent)
                 .Select(GetRelationalExpression)
                 .ToList();
+            var builder = new StringBuilder();
 
             foreach (var relationalExpression in relationalExpressions)
             {
@@ -39,7 +40,8 @@ namespace Prometheus.Services.Service {
                     builder.AppendLine(declaration);
                 }
 
-                if (GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration)) {
+                if (GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration))
+                {
                     builder.AppendLine(declaration);
                 }
             }

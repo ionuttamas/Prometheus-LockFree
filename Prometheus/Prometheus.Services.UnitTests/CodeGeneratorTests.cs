@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
-using Prometheus.Services.Model;
 using Prometheus.Services.Service;
 
 namespace Prometheus.Services.UnitTests
@@ -30,7 +28,7 @@ namespace Prometheus.Services.UnitTests
         {
             get
             {
-                #region First case
+              #region First case
                 yield return new TestCaseData(@"struct node {
                                                    int data;
                                                    struct node *next;
@@ -50,6 +48,55 @@ namespace Prometheus.Services.UnitTests
                                                "struct node * oldVariable = variable;",
                                                "struct node * oldHead = head;",
                                                "struct node * oldHeadNext = head->next;"
+                                                });
+                #endregion
+
+                #region Second case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+                                                struct node * tail = NULL;
+
+                                                void insertFirst() {
+                                                   struct node * headVar = head;
+                                                   struct node * tailVar = tail;
+
+                                                   if(headVar->data == tailVar->data){
+                                                   }
+                                                }",
+                                                new[] {
+                                               "int oldHeadVarData = headVar->data;",
+                                               "int oldTailVarData = tailVar->data;"
+                                                });
+                #endregion
+
+                #region Third case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+                                                struct node * tail = NULL;
+
+                                                void insertFirst() {
+                                                   struct node * headVar = head;
+                                                   struct node * tailVar = tail;
+
+                                                   if(headVar->data == tailVar->data){
+                                                   }
+
+                                                   if(headVar->data != tailVar->data){
+                                                   }
+                                                }",
+                                                new[] {
+                                               "int oldHeadVarData = headVar->data;",
+                                               "int oldTailVarData = tailVar->data;",
+                                               "oldHeadVarData = headVar->data;",
+                                               "oldTailVarData = tailVar->data;"
                                                 });
                 #endregion
             }

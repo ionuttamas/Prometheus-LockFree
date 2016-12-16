@@ -8,7 +8,7 @@ namespace Prometheus.Common {
 
         public static string InsertAtIndex(this string text, string value, int index)
         {
-            string result = $"{text.Substring(0, index)}{value}{text.Substring(index + 1)}";
+            string result = $"{text.Substring(0, index)}{value}{text.Substring(index)}";
 
             return result;
         }
