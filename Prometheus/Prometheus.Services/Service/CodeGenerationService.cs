@@ -14,11 +14,17 @@ namespace Prometheus.Services.Service {
         private const string SNAPSHOT_NAME_MARKER = "old";
         private readonly DataStructure _dataStructure;
         private readonly TypeService _typeService;
+        private readonly Dictionary<Type, Func<object, RelationalExpression>> _relationExtractors;
 
         public CodeGenerationService(DataStructure dataStructure, TypeService typeService)
         {
             _dataStructure = dataStructure;
             _typeService = typeService;
+            _relationExtractors = new Dictionary<Type, Func<object, RelationalExpression>>
+            {
+                { typeof(CLanguageParser.EqualityExpressionContext), x => GetRelationalExpression((CLanguageParser.EqualityExpressionContext) x)},
+                { typeof(CLanguageParser.AndExpressionContext), x => GetRelationalExpression((CLanguageParser.AndExpressionContext) x)}
+            };
         }
 
         public KeyValuePair<int, string> GetSnapshotDeclarations(CLanguageParser.SelectionStatementContext context)
@@ -27,7 +33,7 @@ namespace Prometheus.Services.Service {
             List<RelationalExpression> relationalExpressions = context
                 .expression()
                 .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
-                .Select(x => (CLanguageParser.EqualityExpressionContext) x.Parent)
+                .Select(x => (object) x.Parent)
                 .Select(GetRelationalExpression)
                 .ToList();
             var builder = new StringBuilder();
@@ -74,10 +80,32 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
+        private RelationalExpression GetRelationalExpression(object context)
+        {
+            var type = context.GetType();
+
+            if (!_relationExtractors.ContainsKey(type))
+            {
+                throw new NotSupportedException($"Type {type} is not supported");
+            }
+
+            return _relationExtractors[type](context);
+        }
+
         private RelationalExpression GetRelationalExpression(CLanguageParser.EqualityExpressionContext context) {
             var result = new RelationalExpression {
                 LeftOperand = context.equalityExpression().relationalExpression().GetText(),
                 RightOperand = context.relationalExpression().GetText(),
+                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName()
+        };
+
+            return result;
+        }
+
+        private RelationalExpression GetRelationalExpression(CLanguageParser.AndExpressionContext context) {
+            var result = new RelationalExpression {
+                LeftOperand = context.equalityExpression().relationalExpression().relationalExpression().GetText(),
+                RightOperand = context.equalityExpression().relationalExpression().shiftExpression().GetText(),
                 Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName()
         };
 

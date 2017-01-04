@@ -6,8 +6,8 @@ using Prometheus.Services.Service;
 namespace Prometheus.Services.UnitTests
 {
     public class CodeGeneratorTests {
-        [TestCaseSource(nameof(CodeGeneratorCases))]
-        public void CodeGenerator_GeneratesSelectionDeclaration_Correctly(string codeInput, string[] declarations) {
+        [TestCaseSource(nameof(EqualitySelectionCases))]
+        public void CodeGenerator_GeneratesEqualitySelectionDeclarations_Correctly(string codeInput, string[] declarations) {
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
@@ -22,13 +22,28 @@ namespace Prometheus.Services.UnitTests
             }
         }
 
+        [TestCaseSource(nameof(ComparisonSelectionCases))]
+        public void CodeGenerator_GeneratesComparisonSelectionDeclarations_Correctly(string codeInput, string[] declarations) {
+            var extractor = new DataStructureExtractor();
+            extractor.Visit(codeInput);
+            var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
+            var codeGenerator = new CodeGenerator(generationService);
+            codeGenerator.Visit(codeInput);
+
+            Console.WriteLine(codeGenerator.CodeOutput);
+
+            foreach (var declaration in declarations) {
+                Assert.True(codeGenerator.CodeOutput.Contains(declaration));
+            }
+        }
+
         #region Test Case Sources
 
-        public IEnumerable<TestCaseData> CodeGeneratorCases
+        public IEnumerable<TestCaseData> EqualitySelectionCases
         {
             get
             {
-              #region First case
+                #region First case
                 yield return new TestCaseData(@"struct node {
                                                    int data;
                                                    struct node *next;
@@ -97,6 +112,78 @@ namespace Prometheus.Services.UnitTests
                                                "int oldTailVarData = tailVar->data;",
                                                "oldHeadVarData = headVar->data;",
                                                "oldTailVarData = tailVar->data;"
+                                                });
+                #endregion
+            }
+        }
+
+        public IEnumerable<TestCaseData> ComparisonSelectionCases
+        {
+            get
+            {
+                #region First case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+
+                                                void insertFirst() {
+                                                   struct node * variable = head;
+
+                                                   if(head->next->data > variable->data){
+                                                   }
+                                                }",
+                                                new[] {
+                                               "int oldVariableData = variable->data;",
+                                               "int oldHeadNextData = head->next->data;"
+                                                });
+                #endregion
+
+                #region Second case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+
+                                                void insertFirst() {
+                                                   struct node * variable = head;
+
+                                                   if(head->next->data > variable->data && head->next == variable){
+                                                   }
+                                                }",
+                                                new[] {
+                                               "int oldVariableData = variable->data;",
+                                               "int oldHeadNextData = head->next->data;",
+                                               "struct node * oldHeadNext = head->next;",
+                                               "struct node * oldVariable = variable;",
+                                                });
+                #endregion
+
+                #region Third case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                 struct node * head = NULL;
+
+                                                void insertFirst() {
+                                                   struct node * variable = head;
+
+                                                   if(head->next->data > variable->data && head->next == variable || head->data < variable->data){
+                                                   }
+                                                }",
+                                                new[] {
+                                               "int oldVariableData = variable->data;",
+                                               "int oldHeadNextData = head->next->data;",
+                                               "struct node * oldHeadNext = head->next;",
+                                               "struct node * oldVariable = variable;",
+                                               "oldVariableData = variable->data;",
+                                               "int oldHeadData = head->data;"
                                                 });
                 #endregion
             }
