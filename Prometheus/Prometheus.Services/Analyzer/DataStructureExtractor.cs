@@ -38,15 +38,37 @@ namespace Prometheus.Services
             return base.VisitFunctionDefinition(context);
         }
 
+        public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context)
+        {
+            var assignments = context
+                .GetFirstDescendant<CLanguageParser.CompoundStatementContext>()
+                .GetFirstLevelDescendants<CLanguageParser.AssignmentExpressionContext>()
+                .Where(x=>x.ChildCount>1)
+                .ToList();
+            var functionName = context
+                    .GetFunction()
+                    .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
+                    .GetName();
+            var ifStatement = new IfStatement
+            {
+                Index = context.Start.StartIndex,
+                Assignments = assignments
+            };
+
+            DataStructure[functionName].IfStatements.Add(ifStatement);
+
+            return base.VisitSelectionStatement(context);
+        }
+
         public override object VisitAssignmentExpression(CLanguageParser.AssignmentExpressionContext context) {
             if (context.ChildCount == 3) {
                 var functionName = context
                     .GetFunction()
-                    .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext)
+                    .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
                     .GetName();
                 var operand = context
                     .unaryExpression()
-                    .GetDirectDescendant<CLanguageParser.PrimaryExpressionContext>(x => x is CLanguageParser.PrimaryExpressionContext);
+                    .GetDirectDescendant<CLanguageParser.PrimaryExpressionContext>();
                 List<string> dependentTokens = context
                     .assignmentExpression()
                     .GetDescendants(x => x is CLanguageParser.PrimaryExpressionContext)

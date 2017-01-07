@@ -50,7 +50,7 @@ namespace Prometheus.Services {
             }
         }
 
-        private string IndentDeclarations(string declarations, int indentOffset) {
+        private static string IndentDeclarations(string declarations, int indentOffset) {
             string[] declarationStatements = declarations.Split(Environment.NewLine);
             string indentSpaces = string.Join("", Enumerable.Repeat(" ", indentOffset));
             var builder = new StringBuilder();
@@ -112,7 +112,7 @@ namespace Prometheus.Services {
                 _updates = result;
             }
 
-            private KeyValuePair<string, string> GetVariableAssignment(string declaration) {
+            private static KeyValuePair<string, string> GetVariableAssignment(string declaration) {
                 string[] tokens = declaration
                     .Substring(0, declaration.InvariantIndexOf(EQUAL_MARKER))
                     .Trim()

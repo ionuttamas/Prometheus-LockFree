@@ -73,7 +73,7 @@ namespace Prometheus.Services.Service {
             return false;
         }
 
-        private string GetSnapshotName(string expression)
+        private static string GetSnapshotName(string expression)
         {
             var result = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
 

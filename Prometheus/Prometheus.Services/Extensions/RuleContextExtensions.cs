@@ -4,6 +4,7 @@ using System.Linq;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
+using Prometheus.Common;
 using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Extensions {
@@ -68,15 +69,66 @@ namespace Prometheus.Services.Extensions {
             return descendants;
         }
 
-        public static T GetFirstDescendant<T>(this RuleContext context, Func<RuleContext, bool> filter)
+        public static List<T> GetFirstLevelDescendants<T>(this RuleContext context, Func<RuleContext, bool> filter = null)
             where T : RuleContext
         {
+            if (filter == null) {
+                filter = x => x is T;
+            }
+
+            var result = new List<T>();
+            var children = Enumerable
+                .Range(0, context.ChildCount)
+                .Select(context.GetChild)
+                .OfType<RuleContext>()
+                .ToList();
+            var levelQueue = new Queue<RuleContext>(children);
+            var temporaryQueue = new Queue<RuleContext>();
+            bool levelFound = false;
+
+            while (!levelFound)
+            {
+                foreach (var ruleContext in levelQueue) {
+                    if (filter(ruleContext))
+                    {
+                        levelFound = true;
+                        result.Add((T) ruleContext);
+                    }
+
+                    children = Enumerable
+                            .Range(0, ruleContext.ChildCount)
+                            .Select(ruleContext.GetChild)
+                            .OfType<RuleContext>()
+                            .ToList();
+                    temporaryQueue.EnqueueRange(children);
+                }
+
+                levelQueue.Clear();
+                levelQueue.EnqueueRange(temporaryQueue);
+                temporaryQueue.Clear();
+            }
+
+            //Due to the parse tree representation, expression that should be found on the same level, can be offset by a level
+            //Thus, we consider expressions in 2 levels at a time
+            result.AddRange(levelQueue.Where(ruleContext => filter(ruleContext)).Cast<T>());
+            result = result.Distinct(x => x).ToList();
+
+            return result;
+        }
+
+        public static T GetFirstDescendant<T>(this RuleContext context, Func<RuleContext, bool> filter = null)
+            where T : RuleContext
+        {
+            if (filter == null) {
+                filter = x => x is T;
+            }
+
             var result = context.GetDescendants(filter)[0];
 
             return (T)result;
         }
 
-        public static T GetDirectDescendant<T>(this RuleContext context, Func<RuleContext, bool> filter)
+        public static T GetDirectDescendant<T>(this RuleContext context, Func<RuleContext, bool> filter = null)
             where T: RuleContext
         {
             if (context.ChildCount == 0)
@@ -88,6 +140,11 @@ namespace Prometheus.Services.Extensions {
                 return null;
 
             var childContext = (RuleContext)firstChild;
+
+            if (filter == null)
+            {
+                filter = x => x is T;
+            }
 
             while (childContext!=null && !filter(childContext))
             {
@@ -103,6 +160,28 @@ namespace Prometheus.Services.Extensions {
             }
 
             return (T)childContext;
+        }
+
+        public static List<T> GetDirectDescendants<T>(this RuleContext context, Func<RuleContext, bool> filter = null)
+            where T: RuleContext
+        {
+            var result = new List<T>();
+
+            if (filter == null)
+            {
+                filter = x => x is T;
+            }
+
+            for (int i = 0; i < context.ChildCount; i++) {
+                if (context.GetChild(i) is RuleContext) {
+                    RuleContext ruleContext = (RuleContext)context.GetChild(i);
+
+                    if (filter(ruleContext))
+                        result.Add((T)ruleContext);
+                }
+            }
+
+            return result;
         }
 
         public static RuleContext GetAncestor(this RuleContext context, Func<RuleContext, bool> filter)

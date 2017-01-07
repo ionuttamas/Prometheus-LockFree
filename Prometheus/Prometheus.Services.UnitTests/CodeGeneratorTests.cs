@@ -22,7 +22,7 @@ namespace Prometheus.Services.UnitTests
             }
         }
 
-        [TestCaseSource(nameof(ComparisonSelectionCases))]
+        [TestCaseSource(nameof(QueueGenerationCases))]
         public void CodeGenerator_GeneratesComparisonSelectionDeclarations_Correctly(string codeInput, string[] declarations) {
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
@@ -184,6 +184,92 @@ namespace Prometheus.Services.UnitTests
                                                "struct node * oldVariable = variable;",
                                                "oldVariableData = variable->data;",
                                                "int oldHeadData = head->data;"
+                                                });
+                #endregion
+            }
+        }
+
+        public IEnumerable<TestCaseData> QueueGenerationCases
+        {
+            get
+            {
+                /*#region First case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+                                                struct node * tail = NULL;
+
+                                                void enqueue(int data) {
+                                                    struct node* temp = (struct node*)malloc(sizeof(struct node));
+
+                                                    temp->data = data;
+                                                    temp->next = NULL;
+
+                                                    if(head == NULL && tail == NULL){
+                                                        head = temp;
+                                                        tail = temp;
+                                                        return;
+                                                    }
+                                                    tail->next = temp;
+                                                    tail = temp;
+                                                }
+
+                                                int dequeue() {
+                                                    struct node* temp = head;
+
+                                                    if(head == NULL) {
+                                                        printf(Queue is Empty);
+                                                        return;
+                                                    }
+
+                                                    int result = temp->data;
+
+                                                    if(head == tail) {
+                                                        head = tail = NULL;
+                                                        return result;
+                                                    }
+
+                                                    head = head->next;
+                                                    return result;
+                                                }
+                                                ",
+                                                new[] {
+                                               "int oldVariableData = variable->data;",
+                                               "int oldHeadNextData = head->next->data;"
+                                                });
+                #endregion*/
+
+                #region Second case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+                                                struct node * tail = NULL;
+
+                                                void enqueue(int value) {
+                                                    struct node* temp = (struct node*)malloc(sizeof(struct node));
+
+                                                    temp->data = value;
+                                                    temp->next = NULL;
+
+                                                    if(head == NULL && tail == NULL) {
+                                                        head = temp;
+                                                        tail = temp;
+                                                        return;
+                                                    }
+
+                                                    tail->next = temp;
+                                                    tail = temp;
+                                                }",
+                                                new[] {
+                                               "struct node * oldHead = head;",
+                                               "struct node * oldTail = tail;",
+                                               "struct node * oldTailNext = tail->next;"
                                                 });
                 #endregion
             }
