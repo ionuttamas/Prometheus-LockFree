@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Antlr4.Runtime;
 using Prometheus.Common;
 using Prometheus.Services.Extensions;
 using Prometheus.Services.Model;
@@ -35,6 +36,7 @@ namespace Prometheus.Services.Service {
                 .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
                 .Select(x => (object) x.Parent)
                 .Select(GetRelationalExpression)
+                .Concat(ExtractAssignments(context))
                 .ToList();
             var builder = new StringBuilder();
 
@@ -102,6 +104,16 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
+        private RelationalExpression GetRelationalExpression(CLanguageParser.AssignmentExpressionContext context) {
+            var result = new RelationalExpression {
+                LeftOperand = context.unaryExpression().GetText(),
+                RightOperand = context.assignmentExpression().GetText(),
+                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName()
+        };
+
+            return result;
+        }
+
         private RelationalExpression GetRelationalExpression(CLanguageParser.AndExpressionContext context) {
             var result = new RelationalExpression {
                 LeftOperand = context.equalityExpression().relationalExpression().relationalExpression().GetText(),
@@ -110,6 +122,34 @@ namespace Prometheus.Services.Service {
         };
 
             return result;
+        }
+
+        private List<RelationalExpression> ExtractAssignments(CLanguageParser.SelectionStatementContext context)
+        {
+            /* TODO:
+             * Currently if we have
+             * if(condition) {
+             *    assign1;
+             *    assign2;
+             *    if(condition2) {...}
+             *    assign3;
+             * }
+             * every assign expression will be extracted => we need to treat assign1/2 + assign3 separately
+             */
+
+            string functionName = context
+                    .GetFunction()
+                    .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
+                    .GetName();
+            IfStatement ifStatement = _dataStructure[functionName]
+                .IfStatements
+                .First(x => x.Index == context.Start.StartIndex);
+            List<RelationalExpression> expressions = ifStatement
+                .Assignments
+                .Select(GetRelationalExpression)
+                .ToList();
+
+            return expressions;
         }
 
         private class RelationalExpression {
