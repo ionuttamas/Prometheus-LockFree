@@ -253,11 +253,10 @@ namespace Prometheus.Services.UnitTests
 
                                                 void enqueue(int value) {
                                                     struct node* temp = (struct node*)malloc(sizeof(struct node));
-
                                                     temp->data = value;
                                                     temp->next = NULL;
 
-                                                    if(head == NULL && tail == NULL) {
+                                                    if (head == NULL && tail == NULL) {
                                                         head = temp;
                                                         tail = temp;
                                                         return;

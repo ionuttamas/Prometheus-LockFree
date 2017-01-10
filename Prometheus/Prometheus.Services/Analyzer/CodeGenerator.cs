@@ -22,9 +22,14 @@ namespace Prometheus.Services {
 
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
             KeyValuePair<int, string> update = _generationService.GetSnapshotDeclarations(context);
+            List<Tuple<int, int, string>> replacements = _generationService.GetReplacementDeclarations(context);
 
             if (!string.IsNullOrEmpty(update.Value)) {
-                _updateTable.Add(update.Key, update.Value);
+                _updateTable.AddInsertion(update.Key, update.Value);
+            }
+
+            foreach (var replacement in replacements) {
+                _updateTable.AddReplacement(replacement.Item1, replacement.Item2, replacement.Item3);
             }
 
             return base.VisitSelectionStatement(context);
@@ -36,12 +41,12 @@ namespace Prometheus.Services {
         protected override void PostVisit(IParseTree tree, string input) {
             CodeOutput = input;
 
-            if (!_updateTable.Any())
+            if (!_updateTable.IsEmpty())
                 return;
 
             int offset = 0;
 
-            foreach (var update in _updateTable) {
+            foreach (var update in _updateTable.GetInsertions()) {
                 var index = update.Key + offset;
                 var indentOffset = index - CodeOutput.Substring(0, index).InvariantLastIndexOf(Environment.NewLine) - 2;
                 var declarations = IndentDeclarations(update.Value, indentOffset);
@@ -65,33 +70,45 @@ namespace Prometheus.Services {
             return builder.ToString();
         }
 
-        private class CodeUpdateTable : IEnumerable<KeyValuePair<int, string>> {
+        private class CodeUpdateTable {
             private const string EQUAL_MARKER = "=";
             private const string SEPARATOR_MARKER = " ";
-            private Dictionary<int, string> _updates;
+            private Dictionary<int, string> _insertions;
+            private readonly Dictionary<int, KeyValuePair<int, string>> _replacements;
 
             public CodeUpdateTable() {
-                _updates = new Dictionary<int, string>();
+                _insertions = new Dictionary<int, string>();
+                _replacements = new Dictionary<int, KeyValuePair<int, string>>();
             }
 
-            public void Add(int index, string input) {
-                _updates[index] = input;
+            public void AddInsertion(int index, string value) {
+                _insertions[index] = value;
             }
 
-            public IEnumerator<KeyValuePair<int, string>> GetEnumerator() {
+            public void AddReplacement(int startIndex, int endIndex, string value)
+            {
+                _replacements[startIndex] = new KeyValuePair<int, string>(endIndex, value);
+            }
+
+            public bool IsEmpty()
+            {
+                return _insertions.Any();
+            }
+
+            public IEnumerable<KeyValuePair<int, string>> GetInsertions() {
                 UpdateDeclarations();
-                return _updates.OrderBy(x => x.Key).GetEnumerator();
+                return _insertions.OrderBy(x => x.Key);
             }
 
-            IEnumerator IEnumerable.GetEnumerator() {
-                return GetEnumerator();
+            public IEnumerable<KeyValuePair<int, KeyValuePair<int, string>>> GetReplacements() {
+                return _replacements.OrderBy(x => x.Key);
             }
 
             private void UpdateDeclarations() {
                 var declaredVariables = new List<string>();
                 var result = new Dictionary<int, string>();
 
-                foreach (var update in _updates) {
+                foreach (var update in _insertions) {
                     var builder = new StringBuilder();
 
                     foreach (var declaration in update.Value.Split(Environment.NewLine)) {
@@ -109,7 +126,7 @@ namespace Prometheus.Services {
                     result[update.Key] = builder.ToString();
                 }
 
-                _updates = result;
+                _insertions = result;
             }
 
             private static KeyValuePair<string, string> GetVariableAssignment(string declaration) {

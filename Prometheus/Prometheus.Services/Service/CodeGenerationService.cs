@@ -57,6 +57,30 @@ namespace Prometheus.Services.Service {
             return new KeyValuePair<int, string>(index, builder.ToString());
         }
 
+        public List<Tuple<int, int, string>> GetReplacementDeclarations(CLanguageParser.SelectionStatementContext context)
+        {
+            var result = new List<Tuple<int, int, string>>();
+            List<RelationalExpression> relationalExpressions = context
+                .expression()
+                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
+                .Select(x => (object)x.Parent)
+                .Select(GetRelationalExpression)
+                .ToList();
+
+            foreach (var relationalExpression in relationalExpressions) {
+                string declaration;
+                if (GetReplacementDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration)) {
+                    result.Add(Tuple.Create(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value, declaration));
+                }
+
+                if (GetReplacementDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration)) {
+                    result.Add(Tuple.Create(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value, declaration));
+                }
+            }
+
+            return result;
+        }
+
         private bool GetSnapshotDeclaration(string expression, string operation, out string declaration )
         {
             string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
@@ -75,9 +99,25 @@ namespace Prometheus.Services.Service {
             return false;
         }
 
+        private bool GetReplacementDeclaration(string expression, string operation, out string declaration )
+        {
+            string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
+                expression.Split(POINTER_ACCESS_MARKER).First() :
+                expression;
+
+            if (_dataStructure.GlobalState.Contains(variable) || _dataStructure[operation][variable].LinksToGlobalState)
+            {
+                declaration =  GetSnapshotName(expression);
+                return true;
+            }
+
+            declaration = null;
+            return false;
+        }
+
         private static string GetSnapshotName(string expression)
         {
-            var result = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
+            string result = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
 
             return result;
         }
@@ -94,31 +134,48 @@ namespace Prometheus.Services.Service {
             return _relationExtractors[type](context);
         }
 
-        private RelationalExpression GetRelationalExpression(CLanguageParser.EqualityExpressionContext context) {
+        private RelationalExpression GetRelationalExpression(CLanguageParser.EqualityExpressionContext context)
+        {
+            var leftExpression = context.equalityExpression().relationalExpression();
+            var rightExpression = context.relationalExpression();
+
             var result = new RelationalExpression {
-                LeftOperand = context.equalityExpression().relationalExpression().GetText(),
-                RightOperand = context.relationalExpression().GetText(),
-                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName()
+                LeftOperand = leftExpression.GetText(),
+                RightOperand = rightExpression.GetText(),
+                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Start.StopIndex),
+                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Start.StopIndex),
+                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
             return result;
         }
 
         private RelationalExpression GetRelationalExpression(CLanguageParser.AssignmentExpressionContext context) {
+            var leftExpression = context.unaryExpression();
+            var rightExpression = context.assignmentExpression();
+
             var result = new RelationalExpression {
-                LeftOperand = context.unaryExpression().GetText(),
-                RightOperand = context.assignmentExpression().GetText(),
-                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName()
+                LeftOperand = leftExpression.GetText(),
+                RightOperand = rightExpression.GetText(),
+                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Start.StopIndex),
+                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Start.StopIndex),
+                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
             return result;
         }
 
-        private RelationalExpression GetRelationalExpression(CLanguageParser.AndExpressionContext context) {
+        private RelationalExpression GetRelationalExpression(CLanguageParser.AndExpressionContext context)
+        {
+            var leftExpression = context.equalityExpression().relationalExpression().relationalExpression();
+            var rightExpression = context.equalityExpression().relationalExpression().shiftExpression();
+
             var result = new RelationalExpression {
-                LeftOperand = context.equalityExpression().relationalExpression().relationalExpression().GetText(),
-                RightOperand = context.equalityExpression().relationalExpression().shiftExpression().GetText(),
-                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName()
+                LeftOperand = leftExpression.GetText(),
+                RightOperand = rightExpression.GetText(),
+                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Start.StopIndex),
+                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Start.StopIndex),
+                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
             return result;
@@ -127,7 +184,7 @@ namespace Prometheus.Services.Service {
         private List<RelationalExpression> ExtractAssignments(CLanguageParser.SelectionStatementContext context)
         {
             /* TODO:
-             * Currently if we have
+             * Currently, if we have
              * if(condition) {
              *    assign1;
              *    assign2;
@@ -155,6 +212,8 @@ namespace Prometheus.Services.Service {
         private class RelationalExpression {
             public string LeftOperand { get; set; }
             public string RightOperand { get; set; }
+            public KeyValuePair<int, int> LeftOperandInterval { get; set; }
+            public KeyValuePair<int, int> RightOperandInterval { get; set; }
             public string Operation { get; set; }
         }
     }
