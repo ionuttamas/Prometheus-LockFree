@@ -69,19 +69,20 @@ namespace Prometheus.Services.Service {
 
             foreach (var relationalExpression in relationalExpressions) {
                 string declaration;
-                if (GetReplacementDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration)) {
-                    result.Add(Tuple.Create(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value, declaration));
+                int offset;
+                if (GetReplacementDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration, out offset)) {
+                    result.Add(Tuple.Create(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value + offset, declaration));
                 }
 
-                if (GetReplacementDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration)) {
-                    result.Add(Tuple.Create(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value, declaration));
+                if (GetReplacementDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration, out offset)) {
+                    result.Add(Tuple.Create(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value + offset, declaration));
                 }
             }
 
             return result;
         }
 
-        private bool GetSnapshotDeclaration(string expression, string operation, out string declaration )
+        private bool GetSnapshotDeclaration(string expression, string operation, out string declaration)
         {
             string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
                 expression.Split(POINTER_ACCESS_MARKER).First() :
@@ -90,7 +91,14 @@ namespace Prometheus.Services.Service {
             if (_dataStructure.GlobalState.Contains(variable) || _dataStructure[operation][variable].LinksToGlobalState)
             {
                 string type = _typeService.GetType(expression, operation);
-                declaration =  $"{type} {GetSnapshotName(expression)} = {expression};";
+
+                if (_typeService.IsPointer(type)) {
+                    declaration = $"{type} {GetSnapshotName(expression)} = {expression};";
+                } else {
+                    int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
+                    expression = expression.Substring(0, pointerIndex);
+                    declaration = $"{type} {GetSnapshotName(expression)} = {expression};";
+                }
 
                 return true;
             }
@@ -99,15 +107,29 @@ namespace Prometheus.Services.Service {
             return false;
         }
 
-        private bool GetReplacementDeclaration(string expression, string operation, out string declaration )
+        private bool GetReplacementDeclaration(string expression, string operation, out string declaration, out int offset)
         {
+            offset = 0;
             string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
                 expression.Split(POINTER_ACCESS_MARKER).First() :
                 expression;
 
             if (_dataStructure.GlobalState.Contains(variable) || _dataStructure[operation][variable].LinksToGlobalState)
             {
-                declaration =  GetSnapshotName(expression);
+                string type = _typeService.GetType(expression, operation);
+
+                if (_typeService.IsPointer(type))
+                {
+                    declaration = GetSnapshotName(expression);
+                }
+                else
+                {
+                    int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
+                    offset = expression.Length - pointerIndex;
+                    expression = expression.Substring(0, pointerIndex);
+                    declaration = GetSnapshotName(expression);
+                }
+
                 return true;
             }
 

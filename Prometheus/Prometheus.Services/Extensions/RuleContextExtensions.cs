@@ -86,7 +86,7 @@ namespace Prometheus.Services.Extensions {
             var temporaryQueue = new Queue<RuleContext>();
             bool levelFound = false;
 
-            while (!levelFound)
+            while (!levelFound && levelQueue.Count > 0)
             {
                 foreach (var ruleContext in levelQueue) {
                     if (filter(ruleContext))

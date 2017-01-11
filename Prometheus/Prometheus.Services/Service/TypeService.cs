@@ -20,6 +20,11 @@ namespace Prometheus.Services.Service {
             return value.Contains(STRUCTURE_MARKER);
         }
 
+        public bool IsPointer(string type)
+        {
+            return type.Contains(POINTER_MARKER);
+        }
+
         public string GetType(string expression, string operation) {
             if (!expression.ContainsInvariant(POINTER_ACCESS_MARKER)) {
                 return GetSimpleVariableType(expression, operation);

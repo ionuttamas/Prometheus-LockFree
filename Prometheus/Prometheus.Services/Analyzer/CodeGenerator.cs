@@ -44,15 +44,36 @@ namespace Prometheus.Services {
             if (!_updateTable.IsEmpty())
                 return;
 
-            int offset = 0;
+            var updates = _updateTable
+                .GetInsertions()
+                .Select(x => new {Index = x.Key, Insert = x, Replace = default(KeyValuePair<int, KeyValuePair<int, string>>)})
+                .Concat(_updateTable.GetReplacements().Select(x => new {Index = x.Key, Insert = default(KeyValuePair<int, string>), Replace = x}))
+                .OrderByDescending(x => x.Index)
+                .ToList();
 
-            foreach (var update in _updateTable.GetInsertions()) {
-                var index = update.Key + offset;
-                var indentOffset = index - CodeOutput.Substring(0, index).InvariantLastIndexOf(Environment.NewLine) - 2;
-                var declarations = IndentDeclarations(update.Value, indentOffset);
-                CodeOutput = CodeOutput.InsertAtIndex(declarations, index);
-                offset += declarations.Length;
+            foreach (var update in updates) {
+                if (!update.Insert.IsDefault())
+                {
+                    Insert(update.Insert);
+                }
+                else
+                {
+                    Replace(update.Replace);
+                }
             }
+        }
+
+        private void Insert(KeyValuePair<int, string> insertion)
+        {
+            var index = insertion.Key;
+            var indentOffset = index - CodeOutput.Substring(0, index).InvariantLastIndexOf(Environment.NewLine) - 2;
+            var declarations = IndentDeclarations(insertion.Value, indentOffset);
+            CodeOutput = CodeOutput.InsertAtIndex(declarations, index);
+        }
+
+        private void Replace(KeyValuePair<int, KeyValuePair<int, string>> replacement)
+        {
+            CodeOutput = CodeOutput.Substring(0, replacement.Key) + replacement.Value.Value + CodeOutput.Substring(replacement.Value.Key+1);
         }
 
         private static string IndentDeclarations(string declarations, int indentOffset) {

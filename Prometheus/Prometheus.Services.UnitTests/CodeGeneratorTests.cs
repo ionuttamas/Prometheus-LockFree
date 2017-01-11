@@ -22,8 +22,23 @@ namespace Prometheus.Services.UnitTests
             }
         }
 
-        [TestCaseSource(nameof(QueueGenerationCases))]
+        [TestCaseSource(nameof(ComparisonSelectionCases))]
         public void CodeGenerator_GeneratesComparisonSelectionDeclarations_Correctly(string codeInput, string[] declarations) {
+            var extractor = new DataStructureExtractor();
+            extractor.Visit(codeInput);
+            var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
+            var codeGenerator = new CodeGenerator(generationService);
+            codeGenerator.Visit(codeInput);
+
+            Console.WriteLine(codeGenerator.CodeOutput);
+
+            foreach (var declaration in declarations) {
+                Assert.True(codeGenerator.CodeOutput.Contains(declaration));
+            }
+        }
+
+        [TestCaseSource(nameof(QueueGenerationCases))]
+        public void CodeGenerator_GeneratesQueueDeclarations_Correctly(string codeInput, string[] declarations) {
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
