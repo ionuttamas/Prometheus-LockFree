@@ -8,6 +8,7 @@ namespace Prometheus.Services.Model
         public string Name { get; }
         public string Type { get; }
         public string Operation { get; } //TODO: check if needed
+        public int Index { get; set; }
         public bool LinksToGlobalState { get; set; }
         public HashSet<string> DependentVariables { get; set; }
 

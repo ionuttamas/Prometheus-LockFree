@@ -32,7 +32,7 @@ namespace Prometheus.Services
         }
 
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context) {
-            string functionName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName();
+            string functionName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
             DataStructure.AddOperation(functionName);
 
             return base.VisitFunctionDefinition(context);
@@ -80,7 +80,7 @@ namespace Prometheus.Services
                     return base.VisitAssignmentExpression(context);
                 }
 
-                DataStructure.AddOperation(functionName, variableName, string.Empty, dependentTokens);
+                DataStructure.AddOperation(functionName, variableName, string.Empty, dependentTokens, context.Start.StartIndex);
             }
 
             return base.VisitAssignmentExpression(context);
@@ -99,7 +99,10 @@ namespace Prometheus.Services
             if (function == null)
             {
                 string type = GetType(context);
-                Variable variable = new Variable(variableName, type, string.Empty);
+                var variable = new Variable(variableName, type, string.Empty)
+                {
+                    Index = context.Start.StartIndex
+                };
 
                 DataStructure.AddGlobalVariable(variable);
             }
@@ -125,7 +128,7 @@ namespace Prometheus.Services
 
                 string type = GetType(context);
 
-                DataStructure.AddOperation(functionName, variableName, type, dependentTokens);
+                DataStructure.AddOperation(functionName, variableName, type, dependentTokens, context.Start.StartIndex);
             }
 
             return base.VisitDirectDeclarator(context);
@@ -142,8 +145,10 @@ namespace Prometheus.Services
 
             if (function == null)
             {
-                Variable variable = new Variable(variableName, type, string.Empty);
-
+                var variable = new Variable(variableName, type, string.Empty)
+                {
+                    Index = context.Start.StartIndex
+                };
                 DataStructure.AddGlobalVariable(variable);
             }
             else
@@ -152,7 +157,7 @@ namespace Prometheus.Services
                     .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext)
                     .GetName();
 
-                DataStructure.AddOperation(functionName, context.GetName(), type, new List<string>());
+                DataStructure.AddOperation(functionName, context.GetName(), type, new List<string>(), context.Start.StartIndex);
             }
 
             return base.VisitTypedefName(context);

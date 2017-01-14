@@ -50,7 +50,6 @@
   <ItemGroup>
     <Compile Include="Analyzer\Analyzer.cs" />
     <Compile Include="Analyzer\CodeGenerator.cs" />
-    <Compile Include="Analyzer\CodeUpdateTable.cs" />
     <Compile Include="Analyzer\CodeVisitor.cs" />
     <Compile Include="Analyzer\DataStructureExtractor.cs" />
     <Compile Include="Extensions\RuleContextExtensions.cs" />

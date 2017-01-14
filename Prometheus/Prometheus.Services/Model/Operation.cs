@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using System.Linq;
-using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Model
 {
     public class Operation
     {
         public string Name { get; }
+        public int StartIndex { get; }
+        public int StartBodyIndex { get; }
+        public int EndIndex { get; }
         public List<Variable> LocalVariables { get; }
         public List<IfStatement> IfStatements { get; }
 
@@ -23,7 +25,7 @@ namespace Prometheus.Services.Model
             LocalVariables = variables;
         }
 
-        public void AddVariable(string name, string type, List<string> dependantVariables)
+        public void AddVariable(string name, string type, List<string> dependantVariables, int index)
         {
             Variable variable = this[name];
 
@@ -31,7 +33,8 @@ namespace Prometheus.Services.Model
             {
                 var localVariable = new Variable(name, type, Name)
                 {
-                    DependentVariables = new HashSet<string>(dependantVariables)
+                    DependentVariables = new HashSet<string>(dependantVariables),
+                    Index = index
                 };
                 LocalVariables.Add(localVariable);
             }

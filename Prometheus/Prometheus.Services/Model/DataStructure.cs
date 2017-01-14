@@ -43,9 +43,9 @@ namespace Prometheus.Services.Model
             Operations.Add(operation);
         }
 
-        public void AddOperation(string name, string variableName, string type, List<string> dependentVariables) {
+        public void AddOperation(string name, string variableName, string type, List<string> dependentVariables, int index) {
             AddOperation(name);
-            this[name].AddVariable(variableName, type, dependentVariables);
+            this[name].AddVariable(variableName, type, dependentVariables, index);
         }
 
         public void ProcessDependencies()

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Antlr4.Runtime;
 using Prometheus.Common;
 using Prometheus.Services.Extensions;
@@ -28,14 +29,45 @@ namespace Prometheus.Services.Service {
             };
         }
 
+        public Dictionary<int, string> GetWhileLoopDeclarations(CLanguageParser.FunctionDefinitionContext context)
+        {
+            int insertionIndex = int.MaxValue;
+            string operationName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
+
+            var localVariables = _dataStructure[operationName]
+                .LocalVariables
+                .OrderBy(x => x.Index)
+                .ToList();
+            var variable = localVariables
+                .Skip(1)
+                .Select((var, ix) => new {Variable = var, Index = ix})
+                .FirstOrDefault(x => x.Variable.LinksToGlobalState);
+
+            if (variable != null)
+            {
+                insertionIndex = localVariables[variable.Index].Index;
+            }
+
+            var bodyContext = context.compoundStatement();
+            string body = bodyContext.GetText();
+            int globalVariableIndex = _dataStructure
+                .GlobalState
+                .Variables
+                .Select(x => new Regex($"[^a-zA-Z\\d:]{x.Name}[^a-zA-Z\\d:]"))
+                .Select(x => x.IsMatch(body) ? x.Match(body).Index : -1)
+                .Where(x => x > 0)
+                .Min();
+            insertionIndex = Math.Min(insertionIndex, globalVariableIndex);
+
+            operation.IfStatements.
+
+            return null;
+        }
+
         public KeyValuePair<int, string> GetSnapshotDeclarations(CLanguageParser.SelectionStatementContext context)
         {
             int index = context.Start.StartIndex;
-            List<RelationalExpression> relationalExpressions = context
-                .expression()
-                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
-                .Select(x => (object) x.Parent)
-                .Select(GetRelationalExpression)
+            List<RelationalExpression> relationalExpressions = GetRelations(context)
                 .Concat(ExtractAssignments(context))
                 .ToList();
             var builder = new StringBuilder();
@@ -71,11 +103,11 @@ namespace Prometheus.Services.Service {
                 string declaration;
                 int offset;
                 if (GetReplacementDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration, out offset)) {
-                    result.Add(Tuple.Create(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value + offset, declaration));
+                    result.Add(Tuple.Create(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value - offset, declaration));
                 }
 
                 if (GetReplacementDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration, out offset)) {
-                    result.Add(Tuple.Create(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value + offset, declaration));
+                    result.Add(Tuple.Create(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value - offset, declaration));
                 }
             }
 
@@ -88,7 +120,7 @@ namespace Prometheus.Services.Service {
                 expression.Split(POINTER_ACCESS_MARKER).First() :
                 expression;
 
-            if (_dataStructure.GlobalState.Contains(variable) || _dataStructure[operation][variable].LinksToGlobalState)
+            if (_dataStructure.GlobalState.Contains(variable) || (_dataStructure[operation][variable]!=null && _dataStructure[operation][variable].LinksToGlobalState))
             {
                 string type = _typeService.GetType(expression, operation);
 
@@ -97,6 +129,7 @@ namespace Prometheus.Services.Service {
                 } else {
                     int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
                     expression = expression.Substring(0, pointerIndex);
+                    type = _typeService.GetType(expression, operation);
                     declaration = $"{type} {GetSnapshotName(expression)} = {expression};";
                 }
 
@@ -114,7 +147,7 @@ namespace Prometheus.Services.Service {
                 expression.Split(POINTER_ACCESS_MARKER).First() :
                 expression;
 
-            if (_dataStructure.GlobalState.Contains(variable) || _dataStructure[operation][variable].LinksToGlobalState)
+            if (_dataStructure.GlobalState.Contains(variable) || (_dataStructure[operation][variable] != null && _dataStructure[operation][variable].LinksToGlobalState))
             {
                 string type = _typeService.GetType(expression, operation);
 
@@ -144,6 +177,17 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
+        private List<RelationalExpression> GetRelations(CLanguageParser.SelectionStatementContext context) {
+            List<RelationalExpression> relationalExpressions = context
+                .expression()
+                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
+                .Select(x => (object)x.Parent)
+                .Select(GetRelationalExpression)
+                .ToList();
+
+            return relationalExpressions;
+        }
+
         private RelationalExpression GetRelationalExpression(object context)
         {
             var type = context.GetType();
@@ -164,8 +208,8 @@ namespace Prometheus.Services.Service {
             var result = new RelationalExpression {
                 LeftOperand = leftExpression.GetText(),
                 RightOperand = rightExpression.GetText(),
-                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Start.StopIndex),
-                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Start.StopIndex),
+                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
+                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
                 Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
@@ -179,8 +223,8 @@ namespace Prometheus.Services.Service {
             var result = new RelationalExpression {
                 LeftOperand = leftExpression.GetText(),
                 RightOperand = rightExpression.GetText(),
-                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Start.StopIndex),
-                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Start.StopIndex),
+                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
+                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
                 Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
@@ -195,8 +239,8 @@ namespace Prometheus.Services.Service {
             var result = new RelationalExpression {
                 LeftOperand = leftExpression.GetText(),
                 RightOperand = rightExpression.GetText(),
-                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Start.StopIndex),
-                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Start.StopIndex),
+                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
+                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
                 Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 

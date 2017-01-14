@@ -73,8 +73,8 @@ namespace Prometheus.Services.UnitTests
                                                    }
                                                 }",
                                                 new[] {
-                                               "int oldVariableData = variable->data;",
-                                               "int oldHeadData = head->data;",
+                                               "struct node * oldVariable = variable;",
+                                               "struct node * oldHead = head;",
                                                "struct node * oldVariable = variable;",
                                                "struct node * oldHead = head;",
                                                "struct node * oldHeadNext = head->next;"
@@ -98,8 +98,8 @@ namespace Prometheus.Services.UnitTests
                                                    }
                                                 }",
                                                 new[] {
-                                               "int oldHeadVarData = headVar->data;",
-                                               "int oldTailVarData = tailVar->data;"
+                                               "struct node * oldHeadVar = headVar;",
+                                               "struct node * oldTailVar = tailVar;"
                                                 });
                 #endregion
 
@@ -123,10 +123,36 @@ namespace Prometheus.Services.UnitTests
                                                    }
                                                 }",
                                                 new[] {
-                                               "int oldHeadVarData = headVar->data;",
-                                               "int oldTailVarData = tailVar->data;",
-                                               "oldHeadVarData = headVar->data;",
-                                               "oldTailVarData = tailVar->data;"
+                                               "struct node * oldHeadVar = headVar;",
+                                               "struct node * oldTailVar = tailVar;",
+                                               "oldHeadVar = headVar;",
+                                               "oldTailVar = tailVar;"
+                                                });
+                #endregion
+
+                #region Fourth case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+                                                struct node * tail = NULL;
+
+                                                void enqueue(int value) {
+                                                    struct node* temp = (struct node*)malloc(sizeof(struct node));
+                                                    temp->data = value;
+                                                    temp->next = NULL;
+
+                                                    if (head->next == tail->next && tail->data == head->next->data) {
+                                                        return;
+                                                    }
+                                                }",
+                                                new[] {
+                                               "struct node * oldHeadNext = head->next;",
+                                               "struct node * oldTailNext = tail->next;",
+                                               "int oldTail = tail;",
+                                               "oldHeadNext = head->next;"
                                                 });
                 #endregion
             }
@@ -151,8 +177,8 @@ namespace Prometheus.Services.UnitTests
                                                    }
                                                 }",
                                                 new[] {
-                                               "int oldVariableData = variable->data;",
-                                               "int oldHeadNextData = head->next->data;"
+                                               "struct node * oldVariable = variable;",
+                                               "struct node * oldHeadNext = head->next;"
                                                 });
                 #endregion
 
@@ -171,8 +197,8 @@ namespace Prometheus.Services.UnitTests
                                                    }
                                                 }",
                                                 new[] {
-                                               "int oldVariableData = variable->data;",
-                                               "int oldHeadNextData = head->next->data;",
+                                               "struct node * oldVariable = variable;",
+                                               "struct node * oldHeadNext = head->next;",
                                                "struct node * oldHeadNext = head->next;",
                                                "struct node * oldVariable = variable;",
                                                 });
@@ -193,12 +219,11 @@ namespace Prometheus.Services.UnitTests
                                                    }
                                                 }",
                                                 new[] {
-                                               "int oldVariableData = variable->data;",
-                                               "int oldHeadNextData = head->next->data;",
+                                               "struct node * oldVariable = variable;",
+                                               "struct node * oldHeadNext = head->next;",
                                                "struct node * oldHeadNext = head->next;",
                                                "struct node * oldVariable = variable;",
-                                               "oldVariableData = variable->data;",
-                                               "int oldHeadData = head->data;"
+                                               "oldVariable = variable;",
                                                 });
                 #endregion
             }
@@ -252,8 +277,8 @@ namespace Prometheus.Services.UnitTests
                                                 }
                                                 ",
                                                 new[] {
-                                               "int oldVariableData = variable->data;",
-                                               "int oldHeadNextData = head->next->data;"
+                                               "struct node * oldVariableData = variable->data;",
+                                               "struct node * oldHeadNextData = head->next->data;"
                                                 });
                 #endregion*/
 
@@ -283,7 +308,6 @@ namespace Prometheus.Services.UnitTests
                                                 new[] {
                                                "struct node * oldHead = head;",
                                                "struct node * oldTail = tail;",
-                                               "struct node * oldTailNext = tail->next;"
                                                 });
                 #endregion
             }

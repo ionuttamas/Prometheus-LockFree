@@ -20,6 +20,12 @@ namespace Prometheus.Services {
             _updateTable = new CodeUpdateTable();
         }
 
+        public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context)
+        {
+
+            return base.VisitFunctionDefinition(context);
+        }
+
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
             KeyValuePair<int, string> update = _generationService.GetSnapshotDeclarations(context);
             List<Tuple<int, int, string>> replacements = _generationService.GetReplacementDeclarations(context);
@@ -77,7 +83,9 @@ namespace Prometheus.Services {
         }
 
         private static string IndentDeclarations(string declarations, int indentOffset) {
-            string[] declarationStatements = declarations.Split(Environment.NewLine);
+            var declarationStatements = declarations
+                .Split(Environment.NewLine)
+                .ToList();
             string indentSpaces = string.Join("", Enumerable.Repeat(" ", indentOffset));
             var builder = new StringBuilder();
             builder.AppendLine(declarationStatements[0]);
