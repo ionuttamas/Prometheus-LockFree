@@ -66,6 +66,8 @@ namespace Prometheus.Services.Service {
                 insertionIndex = ifStatement.StartIndex;
             }
 
+            insertionIndex = body.Substring(0, insertionIndex - bodyContext.Start.StartIndex).InvariantLastIndexOf(Environment.NewLine)+ bodyContext.Start.StartIndex+2;
+
             var result = new Dictionary<int, string>
             {
                 {insertionIndex, "while (true) {"},

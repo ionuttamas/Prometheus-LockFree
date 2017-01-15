@@ -58,6 +58,7 @@ namespace Prometheus.Services {
 
             var updates = _updateTable
                 .GetInsertions()
+                .Where(x=>!string.IsNullOrEmpty(x.Value))
                 .Select(x => new {Index = x.Key, Insert = x, Replace = default(KeyValuePair<int, KeyValuePair<int, string>>)})
                 .Concat(_updateTable.GetReplacements().Select(x => new {Index = x.Key, Insert = default(KeyValuePair<int, string>), Replace = x}))
                 .OrderByDescending(x => x.Index)
@@ -158,28 +159,25 @@ namespace Prometheus.Services {
             }
 
             private void UpdateDeclarations() {
-                var declaredVariables = new List<string>();
                 var result = new Dictionary<int, string>();
 
                 foreach (var update in _insertions) {
                     var builder = new StringBuilder();
+                    var declaredVariables = new HashSet<string>();
 
                     foreach (var declaration in update.Value.Split(Environment.NewLine)) {
                         if (!IsAssignment(declaration))
                         {
-                            builder.AppendLine(update.Value);
+                            builder.AppendLine(declaration);
                             continue;
                         }
 
                         var assignment = GetVariableAssignment(declaration);
 
-                        if (declaredVariables.Contains(assignment.Key)) {
-                            builder.AppendLine(assignment.Value);
-                        } else {
+                        if (!declaredVariables.Contains(assignment.Key)) {
                             builder.AppendLine(declaration);
+                            declaredVariables.Add(assignment.Key);
                         }
-
-                        declaredVariables.Add(assignment.Key);
                     }
 
                     result[update.Key] = builder.ToString();

@@ -8,12 +8,15 @@ namespace Prometheus.Services.UnitTests
     public class CodeGeneratorTests {
         [TestCaseSource(nameof(EqualitySelectionCases))]
         public void CodeGenerator_GeneratesEqualitySelectionDeclarations_Correctly(string codeInput, string[] declarations) {
+
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
             var codeGenerator = new CodeGenerator(generationService);
             codeGenerator.Visit(codeInput);
 
+            Console.WriteLine(codeInput);
+            Console.WriteLine("====================");
             Console.WriteLine(codeGenerator.CodeOutput);
 
             foreach (var declaration in declarations)
@@ -30,6 +33,8 @@ namespace Prometheus.Services.UnitTests
             var codeGenerator = new CodeGenerator(generationService);
             codeGenerator.Visit(codeInput);
 
+            Console.WriteLine(codeInput);
+            Console.WriteLine("====================");
             Console.WriteLine(codeGenerator.CodeOutput);
 
             foreach (var declaration in declarations) {
@@ -45,6 +50,8 @@ namespace Prometheus.Services.UnitTests
             var codeGenerator = new CodeGenerator(generationService);
             codeGenerator.Visit(codeInput);
 
+            Console.WriteLine(codeInput);
+            Console.WriteLine("====================");
             Console.WriteLine(codeGenerator.CodeOutput);
 
             foreach (var declaration in declarations) {
@@ -233,7 +240,7 @@ namespace Prometheus.Services.UnitTests
         {
             get
             {
-                /*#region First case
+                #region First case
                 yield return new TestCaseData(@"struct node {
                                                    int data;
                                                    struct node *next;
@@ -261,7 +268,7 @@ namespace Prometheus.Services.UnitTests
                                                     struct node* temp = head;
 
                                                     if(head == NULL) {
-                                                        printf(Queue is Empty);
+                                                        printf(""Queue is Empty"");
                                                         return;
                                                     }
 
@@ -277,10 +284,10 @@ namespace Prometheus.Services.UnitTests
                                                 }
                                                 ",
                                                 new[] {
-                                               "struct node * oldVariableData = variable->data;",
-                                               "struct node * oldHeadNextData = head->next->data;"
+                                               "struct node * oldHead = head;",
+                                               "struct node * oldTail = tail;",
                                                 });
-                #endregion*/
+                #endregion
 
                 #region Second case
                 yield return new TestCaseData(@"struct node {
