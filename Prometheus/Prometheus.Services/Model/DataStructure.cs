@@ -35,17 +35,17 @@ namespace Prometheus.Services.Model
             GlobalState.Add(variable);
         }
 
-        public void AddOperation(string name)
+        public void AddOperation(string name, int startIndex, int endIndex)
         {
             if (this[name] != null) return;
 
-            var operation = new Operation(name);
-            Operations.Add(operation);
-        }
+            var operation = new Operation(name)
+            {
+                StartIndex = startIndex,
+                EndIndex = endIndex
+            };
 
-        public void AddOperation(string name, string variableName, string type, List<string> dependentVariables, int index) {
-            AddOperation(name);
-            this[name].AddVariable(variableName, type, dependentVariables, index);
+            Operations.Add(operation);
         }
 
         public void ProcessDependencies()

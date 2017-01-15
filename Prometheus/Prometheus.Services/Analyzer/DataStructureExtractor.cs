@@ -33,7 +33,8 @@ namespace Prometheus.Services
 
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context) {
             string functionName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
-            DataStructure.AddOperation(functionName);
+            var bodyContext = context.compoundStatement();
+            DataStructure.AddOperation(functionName, bodyContext.Start.StartIndex, bodyContext.Stop.StopIndex);
 
             return base.VisitFunctionDefinition(context);
         }
@@ -81,7 +82,7 @@ namespace Prometheus.Services
                     return base.VisitAssignmentExpression(context);
                 }
 
-                DataStructure.AddOperation(functionName, variableName, string.Empty, dependentTokens, context.Start.StartIndex);
+                DataStructure[functionName].AddVariable(variableName, string.Empty, dependentTokens, context.Start.StartIndex);
             }
 
             return base.VisitAssignmentExpression(context);
@@ -128,8 +129,7 @@ namespace Prometheus.Services
                 }
 
                 string type = GetType(context);
-
-                DataStructure.AddOperation(functionName, variableName, type, dependentTokens, context.Start.StartIndex);
+                DataStructure[functionName].AddVariable(variableName, type, dependentTokens, context.Start.StartIndex);
             }
 
             return base.VisitDirectDeclarator(context);
@@ -158,7 +158,7 @@ namespace Prometheus.Services
                     .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext)
                     .GetName();
 
-                DataStructure.AddOperation(functionName, context.GetName(), type, new List<string>(), context.Start.StartIndex);
+                DataStructure[functionName].AddVariable(context.GetName(), type, new List<string>(), context.Start.StartIndex);
             }
 
             return base.VisitTypedefName(context);

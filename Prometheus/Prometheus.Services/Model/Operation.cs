@@ -6,6 +6,8 @@ namespace Prometheus.Services.Model
     public class Operation
     {
         public string Name { get; }
+        public int StartIndex { get; set; }
+        public int EndIndex { get; set; }
         public List<Variable> LocalVariables { get; }
         public List<IfStatement> IfStatements { get; }
 
