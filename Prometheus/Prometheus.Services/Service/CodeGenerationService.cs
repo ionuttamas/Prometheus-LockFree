@@ -49,19 +49,30 @@ namespace Prometheus.Services.Service {
             }
 
             var bodyContext = context.compoundStatement();
-            string body = bodyContext.GetText();
-            int globalVariableIndex = _dataStructure
+            string body = bodyContext.GetContextText();
+            var globalVariableIndexes = _dataStructure
                 .GlobalState
                 .Variables
                 .Select(x => new Regex($"[^a-zA-Z\\d:]{x.Name}[^a-zA-Z\\d:]"))
                 .Select(x => x.IsMatch(body) ? x.Match(body).Index : -1)
                 .Where(x => x > 0)
-                .Min();
-            insertionIndex = Math.Min(insertionIndex, globalVariableIndex);
+                .Select(x => x + bodyContext.Start.StartIndex);
+            insertionIndex = Math.Min(insertionIndex, globalVariableIndexes.Any() ? globalVariableIndexes.Min() : insertionIndex);
+            Operation operation = _dataStructure[operationName];
+            IfStatement ifStatement = operation.IfStatements.FirstOrDefault(x => x.StartIndex < insertionIndex && insertionIndex < x.EndIndex);
 
-            operation.IfStatements.
+            if (ifStatement != null)
+            {
+                insertionIndex = ifStatement.StartIndex;
+            }
 
-            return null;
+            var result = new Dictionary<int, string>
+            {
+                {insertionIndex, "while (true) {"},
+                {context.Stop.StopIndex - 1, "}"},
+            };
+
+            return result;
         }
 
         public KeyValuePair<int, string> GetSnapshotDeclarations(CLanguageParser.SelectionStatementContext context)
@@ -266,7 +277,7 @@ namespace Prometheus.Services.Service {
                     .GetName();
             IfStatement ifStatement = _dataStructure[functionName]
                 .IfStatements
-                .First(x => x.Index == context.Start.StartIndex);
+                .First(x => x.StartIndex == context.Start.StartIndex);
             List<RelationalExpression> expressions = ifStatement
                 .Assignments
                 .Select(GetRelationalExpression)

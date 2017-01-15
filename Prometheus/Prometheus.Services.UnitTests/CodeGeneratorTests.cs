@@ -151,7 +151,7 @@ namespace Prometheus.Services.UnitTests
                                                 new[] {
                                                "struct node * oldHeadNext = head->next;",
                                                "struct node * oldTailNext = tail->next;",
-                                               "int oldTail = tail;",
+                                               "struct node * oldTail = tail;",
                                                "oldHeadNext = head->next;"
                                                 });
                 #endregion

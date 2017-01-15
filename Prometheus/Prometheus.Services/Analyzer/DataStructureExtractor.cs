@@ -51,7 +51,8 @@ namespace Prometheus.Services
                     .GetName();
             var ifStatement = new IfStatement
             {
-                Index = context.Start.StartIndex,
+                StartIndex = context.Start.StartIndex,
+                EndIndex = context.Stop.StopIndex,
                 Assignments = assignments
             };
 

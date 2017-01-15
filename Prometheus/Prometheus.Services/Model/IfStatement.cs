@@ -5,7 +5,8 @@ namespace Prometheus.Services.Model
 {
     public class IfStatement
     {
-        public int Index { get; set; }
+        public int StartIndex { get; set; }
+        public int EndIndex { get; set; }
         public List<CLanguageParser.AssignmentExpressionContext> Assignments { get; set; }
         public List<ElseStatement> ElseStatements { get; set; }
     }

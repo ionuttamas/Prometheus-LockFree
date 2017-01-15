@@ -22,6 +22,12 @@ namespace Prometheus.Services {
 
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context)
         {
+            var whileDeclarations = _generationService.GetWhileLoopDeclarations(context);
+
+            foreach (var whileDeclaration in whileDeclarations)
+            {
+                _updateTable.AddInsertion(whileDeclaration.Key, whileDeclaration.Value);
+            }
 
             return base.VisitFunctionDefinition(context);
         }
@@ -111,7 +117,25 @@ namespace Prometheus.Services {
             }
 
             public void AddInsertion(int index, string value) {
-                _insertions[index] = value;
+                if (IsAssignment(value))
+                {
+                    if (_insertions.ContainsKey(index))
+                    {
+                        _insertions[index] = $"{_insertions[index]}{Environment.NewLine}{value}";
+                    }
+                    else
+                    {
+                        _insertions[index] = value;
+                    }
+                }
+                else
+                {
+                    if (_insertions.ContainsKey(index)) {
+                        _insertions[index] = $"{value}{Environment.NewLine}{_insertions[index]}";
+                    } else {
+                        _insertions[index] = value;
+                    }
+                }
             }
 
             public void AddReplacement(int startIndex, int endIndex, string value)
@@ -141,6 +165,12 @@ namespace Prometheus.Services {
                     var builder = new StringBuilder();
 
                     foreach (var declaration in update.Value.Split(Environment.NewLine)) {
+                        if (!IsAssignment(declaration))
+                        {
+                            builder.AppendLine(update.Value);
+                            continue;
+                        }
+
                         var assignment = GetVariableAssignment(declaration);
 
                         if (declaredVariables.Contains(assignment.Key)) {
@@ -156,6 +186,11 @@ namespace Prometheus.Services {
                 }
 
                 _insertions = result;
+            }
+
+            private bool IsAssignment(string value)
+            {
+                return value.Contains(EQUAL_MARKER);
             }
 
             private static KeyValuePair<string, string> GetVariableAssignment(string declaration) {
