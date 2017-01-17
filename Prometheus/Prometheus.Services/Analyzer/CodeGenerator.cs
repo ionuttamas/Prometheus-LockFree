@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Antlr4.Runtime.Tree;
 using Prometheus.Common;
+using Prometheus.Services.Model;
 using Prometheus.Services.Parser;
 using Prometheus.Services.Service;
 
@@ -15,9 +16,9 @@ namespace Prometheus.Services {
 
         public string CodeOutput { get; private set; }
 
-        public CodeGenerator(CodeGenerationService generationService) {
+        public CodeGenerator(DataStructure dataStructure, CodeGenerationService generationService) {
             _generationService = generationService;
-            _updateTable = new CodeUpdateTable();
+            _updateTable = new CodeUpdateTable(dataStructure);
         }
 
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context)
@@ -109,12 +110,14 @@ namespace Prometheus.Services {
         private class CodeUpdateTable {
             private const string EQUAL_MARKER = "=";
             private const string SEPARATOR_MARKER = " ";
+            private readonly DataStructure _dataStructure;
             private Dictionary<int, string> _insertions;
             private readonly Dictionary<int, KeyValuePair<int, string>> _replacements;
 
-            public CodeUpdateTable() {
+            public CodeUpdateTable(DataStructure dataStructure) {
                 _insertions = new Dictionary<int, string>();
                 _replacements = new Dictionary<int, KeyValuePair<int, string>>();
+                _dataStructure = dataStructure;
             }
 
             public void AddInsertion(int index, string value) {
@@ -158,25 +161,31 @@ namespace Prometheus.Services {
                 return _replacements.OrderBy(x => x.Key);
             }
 
-            private void UpdateDeclarations() {
+            private void UpdateDeclarations()
+            {
                 var result = new Dictionary<int, string>();
+                var operationsDeclarations = _dataStructure.Operations.ToDictionary(x => x, x => new List<string>());
 
-                foreach (var update in _insertions) {
+                foreach (var update in _insertions.OrderBy(x => x.Key))
+                {
                     var builder = new StringBuilder();
-                    var declaredVariables = new HashSet<string>();
 
-                    foreach (var declaration in update.Value.Split(Environment.NewLine)) {
+                    foreach (var declaration in update.Value.Split(Environment.NewLine))
+                    {
                         if (!IsAssignment(declaration))
                         {
                             builder.AppendLine(declaration);
                             continue;
                         }
 
-                        var assignment = GetVariableAssignment(declaration);
+                        KeyValuePair<string, string> assignment = GetVariableAssignment(declaration);
+                        KeyValuePair<Operation, List<string>> entry = operationsDeclarations
+                            .First(x => x.Key.StartIndex < update.Key && update.Key < x.Key.EndIndex);
 
-                        if (!declaredVariables.Contains(assignment.Key)) {
+                        if (!entry.Value.Contains(assignment.Key))
+                        {
                             builder.AppendLine(declaration);
-                            declaredVariables.Add(assignment.Key);
+                            entry.Value.Add(assignment.Key);
                         }
                     }
 

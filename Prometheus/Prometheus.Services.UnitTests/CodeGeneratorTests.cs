@@ -12,7 +12,7 @@ namespace Prometheus.Services.UnitTests
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
-            var codeGenerator = new CodeGenerator(generationService);
+            var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 
             Console.WriteLine(codeInput);
@@ -30,7 +30,7 @@ namespace Prometheus.Services.UnitTests
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
-            var codeGenerator = new CodeGenerator(generationService);
+            var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 
             Console.WriteLine(codeInput);
@@ -47,7 +47,7 @@ namespace Prometheus.Services.UnitTests
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
-            var codeGenerator = new CodeGenerator(generationService);
+            var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 
             Console.WriteLine(codeInput);
