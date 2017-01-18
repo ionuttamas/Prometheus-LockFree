@@ -77,6 +77,18 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
+        public KeyValuePair<int, string> GetCASDeclaration(CLanguageParser.AssignmentExpressionContext context)
+        {
+            RelationalExpression relationalExpression = GetRelationalExpression(context);
+            int offset = 0;
+            //todo: currently we consider just pointer based variables: e.g. "head->next"; need to fix for value types e.g. "head->next->data"
+            string snapshotVariable = GetSnapshotOldName(relationalExpression.RightOperand, relationalExpression.Operation, ref offset);
+
+
+
+            return result;
+        }
+
         public KeyValuePair<int, string> GetSnapshotDeclarations(CLanguageParser.SelectionStatementContext context)
         {
             int index = context.Start.StartIndex;
@@ -162,25 +174,32 @@ namespace Prometheus.Services.Service {
 
             if (_dataStructure.GlobalState.Contains(variable) || (_dataStructure[operation][variable] != null && _dataStructure[operation][variable].LinksToGlobalState))
             {
-                string type = _typeService.GetType(expression, operation);
-
-                if (_typeService.IsPointer(type))
-                {
-                    declaration = GetSnapshotName(expression);
-                }
-                else
-                {
-                    int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
-                    offset = expression.Length - pointerIndex;
-                    expression = expression.Substring(0, pointerIndex);
-                    declaration = GetSnapshotName(expression);
-                }
-
+                declaration = GetSnapshotOldName(expression, operation, ref offset);
                 return true;
             }
 
             declaration = null;
             return false;
+        }
+
+        private string GetSnapshotOldName(string expression, string operation, ref int offset)
+        {
+            string declaration;
+            string type = _typeService.GetType(expression, operation);
+
+            if (_typeService.IsPointer(type))
+            {
+                declaration = GetSnapshotName(expression);
+            }
+            else
+            {
+                int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
+                offset = expression.Length - pointerIndex;
+                expression = expression.Substring(0, pointerIndex);
+                declaration = GetSnapshotName(expression);
+            }
+
+            return declaration;
         }
 
         private static string GetSnapshotName(string expression)

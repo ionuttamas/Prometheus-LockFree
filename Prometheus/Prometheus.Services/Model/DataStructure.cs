@@ -9,12 +9,15 @@ namespace Prometheus.Services.Model
         public List<Structure> Structures { get; set; }
         public State GlobalState { get; set; }
         public List<Operation> Operations { get; set; }
+        public Dictionary<string, int> OperationCodes { get; }
+        public Dictionary<string, int> OperationCodes { get; }
 
         public DataStructure()
         {
             GlobalState = new State();
             Operations = new List<Operation>();
             Structures = new List<Structure>();
+            OperationCodes = new Dictionary<string, int>();
         }
 
         public Operation this[string name]
@@ -48,11 +51,24 @@ namespace Prometheus.Services.Model
             Operations.Add(operation);
         }
 
-        public void ProcessDependencies()
+        public void PostProcess()
+        {
+            ProcessDependencies();
+            BuildCodesTable();
+        }
+
+        private void ProcessDependencies()
         {
             foreach (var operation in Operations)
             {
                 ProcessOperation(operation);
+            }
+        }
+
+        private void BuildCodesTable() {
+            for (int i = 0; i < Operations.Count; i++)
+            {
+                OperationCodes[Operations[i].Name] = i;
             }
         }
 
