@@ -1,11 +1,22 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 
 namespace Prometheus.Common
 {
     public static class CollectionExtensions {
+        public static T MinItem<T>(this IEnumerable<T> value, Func<T, object> comparer) {
+            T minElement = value.OrderBy(comparer).FirstOrDefault();
+
+            return minElement;
+        }
+
+        public static T MaxItem<T>(this IEnumerable<T> value, Func<T, object> comparer) {
+            T minElement = value.OrderBy(comparer).FirstOrDefault();
+
+            return minElement;
+        }
+
         public static bool IsNullOrEmpty<T>(this IEnumerable<T> value) {
             if (value == null || !value.Any())
                 return true;

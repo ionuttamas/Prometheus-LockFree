@@ -260,8 +260,7 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
-        private List<RelationalExpression> ExtractAssignments(CLanguageParser.SelectionStatementContext context)
-        {
+        private List<RelationalExpression> ExtractAssignments(CLanguageParser.SelectionStatementContext context) {
             /* TODO:
              * Currently, if we have
              * if(condition) {
@@ -274,14 +273,18 @@ namespace Prometheus.Services.Service {
              */
 
             string functionName = context
-                    .GetFunction()
-                    .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
-                    .GetName();
+                .GetFunction()
+                .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
+                .GetName();
             IfStatement ifStatement = _dataStructure[functionName]
                 .IfStatements
                 .First(x => x.StartIndex == context.Start.StartIndex);
+            IfStatement firstInnerIfStatement = ifStatement
+                .IfStatements
+                .MinItem(x => x.StartIndex);
             List<RelationalExpression> expressions = ifStatement
                 .Assignments
+                .Where(x => firstInnerIfStatement == null || firstInnerIfStatement.StartIndex > x.Start.StartIndex)
                 .Select(GetRelationalExpression)
                 .ToList();
 
