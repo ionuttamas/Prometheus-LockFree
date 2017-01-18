@@ -23,7 +23,7 @@ namespace Prometheus.Services {
 
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context)
         {
-            var whileDeclarations = _generationService.GetWhileLoopDeclarations(context);
+            Dictionary<int, string> whileDeclarations = _generationService.GetWhileLoopDeclarations(context);
 
             foreach (var whileDeclaration in whileDeclarations)
             {
@@ -195,7 +195,7 @@ namespace Prometheus.Services {
                 _insertions = result;
             }
 
-            private bool IsAssignment(string value)
+            private static bool IsAssignment(string value)
             {
                 return value.Contains(EQUAL_MARKER);
             }
