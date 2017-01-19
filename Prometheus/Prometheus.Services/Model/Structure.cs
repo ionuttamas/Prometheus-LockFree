@@ -5,6 +5,8 @@ namespace Prometheus.Services.Model
 {
     public class Structure
     {
+        public int StartIndex { get; set; }
+        public int EndIndex { get; set; }
         public string Name { get; }
         public List<Field> Fields { get; set; }
 

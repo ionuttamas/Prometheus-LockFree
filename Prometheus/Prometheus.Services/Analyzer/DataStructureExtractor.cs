@@ -169,14 +169,19 @@ namespace Prometheus.Services
 
         protected override void PostVisit(IParseTree tree, string input)
         {
-            DataStructure.ProcessDependencies();
+            DataStructure.PostProcess();
         }
 
-        private Structure GetStructureType(CLanguageParser.StructDeclarationListContext context)
+        private static Structure GetStructureType(CLanguageParser.StructDeclarationListContext context)
         {
-            var declarations = context.GetLeafDescendants(x => x is CLanguageParser.StructDeclarationContext).Select(x=>(CLanguageParser.StructDeclarationContext)x);
-            var specifierContext = context.GetAncestor(x => x is CLanguageParser.StructOrUnionSpecifierContext);
-            var structure = new Structure(specifierContext.GetChild(1).GetText());
+            var declarations = context
+                .GetLeafDescendants(x => x is CLanguageParser.StructDeclarationContext)
+                .Select(x=>(CLanguageParser.StructDeclarationContext)x);
+            var specifierContext = (ParserRuleContext)context.GetAncestor(x => x is CLanguageParser.StructOrUnionSpecifierContext);
+            var structure = new Structure(specifierContext.GetChild(1).GetText()) {
+                StartIndex = specifierContext.Start.StartIndex,
+                EndIndex = specifierContext.Stop.StopIndex
+            };
 
             foreach (var declaration in declarations)
             {

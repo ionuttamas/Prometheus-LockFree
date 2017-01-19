@@ -10,7 +10,6 @@ namespace Prometheus.Services.Model
         public State GlobalState { get; set; }
         public List<Operation> Operations { get; set; }
         public Dictionary<string, int> OperationCodes { get; }
-        public Dictionary<string, int> OperationCodes { get; }
 
         public DataStructure()
         {
