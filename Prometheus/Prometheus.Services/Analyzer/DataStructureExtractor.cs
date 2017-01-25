@@ -33,7 +33,13 @@ namespace Prometheus.Services
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context) {
             string functionName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
             var bodyContext = context.compoundStatement();
-            DataStructure.AddOperation(functionName, bodyContext.Start.StartIndex, bodyContext.Stop.StopIndex);
+            var operation = new Operation(functionName)
+            {
+                StartIndex = bodyContext.Start.StartIndex,
+                EndIndex = bodyContext.Stop.StopIndex,
+                Context = bodyContext
+            };
+            DataStructure.AddOperation(operation);
 
             return base.VisitFunctionDefinition(context);
         }
@@ -169,7 +175,7 @@ namespace Prometheus.Services
 
         protected override void PostVisit(IParseTree tree, string input)
         {
-            DataStructure.ProcessDependencies();
+            DataStructure.PostProcess();
         }
 
         private Structure GetStructureType(CLanguageParser.StructDeclarationListContext context)

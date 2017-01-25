@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Model
 {
@@ -8,14 +9,17 @@ namespace Prometheus.Services.Model
         public string Name { get; }
         public int StartIndex { get; set; }
         public int EndIndex { get; set; }
+        public CLanguageParser.CompoundStatementContext Context { get; set; }
         public List<Variable> LocalVariables { get; }
         public List<IfStatement> IfStatements { get; }
+        public List<Region> Regions { get; }
 
         public Operation(string name)
         {
             Name = name;
             IfStatements = new List<IfStatement>();
             LocalVariables = new List<Variable>();
+            Regions = new List<Region>();
         }
 
         public Operation(string name, List<Variable> variables)

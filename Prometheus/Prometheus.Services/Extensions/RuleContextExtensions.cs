@@ -25,6 +25,13 @@ namespace Prometheus.Services.Extensions {
             return text;
         }
 
+        public static string GetContextText(this ParserRuleContext context, int start, int end)
+        {
+            string text = context.Start.InputStream.GetText(Interval.Of(start, end));
+
+            return text;
+        }
+
         public static CLanguageParser.FunctionDefinitionContext GetFunction(this RuleContext context)
         {
             var result = (CLanguageParser.FunctionDefinitionContext)context.GetAncestor(x => x is CLanguageParser.FunctionDefinitionContext);

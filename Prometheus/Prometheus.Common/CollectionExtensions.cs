@@ -5,6 +5,16 @@ using System.Linq;
 namespace Prometheus.Common
 {
     public static class CollectionExtensions {
+        public static Dictionary<TK, TV> Merge<TK, TV>(this Dictionary<TK, TV> instance, Dictionary<TK, TV> value)
+        {
+            foreach (var entry in value)
+            {
+                instance[entry.Key] = entry.Value;
+            }
+
+            return instance;
+        }
+
         public static T MinItem<T>(this IEnumerable<T> value, Func<T, object> comparer) {
             T minElement = value.OrderBy(comparer).FirstOrDefault();
 

@@ -9,6 +9,7 @@ namespace Prometheus.Services.Model
             IfStatements = new List<IfStatement>();
         }
 
+        public CLanguageParser.SelectionStatementContext Context { get; set; }
         public int StartIndex { get; set; }
         public int EndIndex { get; set; }
         public List<IfStatement> IfStatements { get; set; }
