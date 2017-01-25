@@ -77,7 +77,7 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
-        public KeyValuePair<int, string> GetCASDeclaration(CLanguageParser.AssignmentExpressionContext context)
+        /*public KeyValuePair<int, string> GetCASDeclaration(CLanguageParser.AssignmentExpressionContext context)
         {
             RelationalExpression relationalExpression = GetRelationalExpression(context);
             int offset = 0;
@@ -87,7 +87,7 @@ namespace Prometheus.Services.Service {
 
 
             return result;
-        }
+        }*/
 
         public KeyValuePair<int, string> GetSnapshotDeclarations(CLanguageParser.SelectionStatementContext context)
         {
