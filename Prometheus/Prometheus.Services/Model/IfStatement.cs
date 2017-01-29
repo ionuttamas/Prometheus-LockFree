@@ -18,7 +18,10 @@ namespace Prometheus.Services.Model
     }
 
     public class ElseStatement {
-        public int Index { get; set; }
+        public CLanguageParser.SelectionStatementContext Context { get; set; } //todo
+        public int StartIndex { get; set; }
+        public int EndIndex { get; set; }
+        public List<IfStatement> IfStatements { get; set; }
         public List<CLanguageParser.AssignmentExpressionContext> Assignments { get; set; }
     }
 }
