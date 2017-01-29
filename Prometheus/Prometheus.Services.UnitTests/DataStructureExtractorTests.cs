@@ -21,6 +21,14 @@ namespace Prometheus.Services.UnitTests
             }
         }
 
+        [TestCaseSource(nameof(RegionCases))]
+        public void DataStructureExtractor_ExtractsRegionsForOperations_PerformsCorrectly(string codeInput, Dictionary<string, int> operationRegions)
+        {
+            var codeVisitor = new DataStructureExtractor();
+            codeVisitor.Visit(codeInput);
+            Assert.True(operationRegions.All(x => codeVisitor.DataStructure.OperationInternalCodes[x.Key].Count == x.Value));
+        }
+
         #region Test Case Sources
 
         public IEnumerable<TestCaseData> DataStructureCases
@@ -328,6 +336,230 @@ namespace Prometheus.Services.UnitTests
                                 new Operation("main")
                             });
                 #endregion
+            }
+        }
+
+        public IEnumerable<TestCaseData> RegionCases
+        {
+            get
+            {
+                #region First case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   int key;
+                                                   struct node *next;
+                                                };
+
+                                                struct node *head = NULL;
+                                                struct node *current = NULL;
+
+                                                void method_no_ifs(int key, int data) {
+                                                   int variable;
+                                                   struct node *link = (struct node*) malloc(sizeof(struct node));
+
+                                                   link->key = key;
+                                                   link->data = data;
+                                                   link->next = head;
+                                                   head = link;
+                                                }
+
+                                                struct node* method_1_simple_if() {
+                                                   struct node *tempLink = head;
+                                                   head = head->next;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+                                                   }
+
+                                                   return tempLink;
+                                                }
+
+                                                struct node* method_1_if_else() {
+                                                   struct node *tempLink = head;
+                                                   head = head->next;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+                                                   }
+                                                   else {
+                                                        head = tail->next;
+                                                   }
+
+                                                   return tempLink;
+                                                }
+                                                main() {
+                                                }",
+                            new Dictionary<string, int>
+                            {
+                                {"method_no_ifs", 1},
+                                {"method_1_simple_if", 3},
+                                {"method_1_if_else", 4},
+                            });
+                #endregion
+/*
+                #region Second case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   int key;
+                                                   struct node *next;
+                                                };
+
+                                                struct node *head = NULL;
+                                                struct node *current = NULL;
+
+                                                struct node* method_2_simple_if_else() {
+                                                   struct node *tempLink = head;
+                                                   head = head->next;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+                                                   }
+                                                   else {
+                                                        head = tail->next;
+                                                   }
+
+                                                   head->next = NULL;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+                                                   }
+                                                   else {
+                                                        head = tail->next;
+                                                   }
+
+                                                   return tempLink;
+                                                }
+
+                                                struct node* method_1_nested_if() {
+                                                   struct node *tempLink = head;
+                                                   head = head->next;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+
+                                                        if(head==tempLink) {
+                                                            head = tail;
+                                                        }
+                                                        else {
+                                                            head = tail->next;
+                                                        }
+
+                                                        head = tail->next;
+                                                   }
+
+                                                   head->next = NULL;
+
+                                                   return tempLink;
+                                                }
+
+                                                struct node* method_2_nested_if() {
+                                                   struct node *tempLink = head;
+                                                   head = head->next;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+
+                                                        if(head==tempLink) {
+                                                            head = tail;
+                                                        }
+                                                        else {
+                                                            head = tail->next;
+                                                        }
+
+                                                        head = tail->next;
+                                                   }
+
+                                                    head = tail;
+                                                    tail = NULL;
+
+                                                    if(head==tempLink) {
+                                                        head = tail;
+
+                                                        if(head==tempLink) {
+                                                            head = tail;
+                                                        }
+                                                        else {
+                                                            head = tail->next;
+                                                        }
+
+                                                        head = tail->next;
+                                                   }
+
+                                                   head->next = NULL;
+
+                                                   return tempLink;
+                                                }
+                                                main() {
+                                                }",
+                            new Dictionary<string, int>
+                            {
+                                {"method_2_simple_if_else", 7},
+                                {"method_1_nested_if", 6},
+                                {"method_2_nested_if", 11},
+                            });
+                #endregion
+
+                #region Third case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   int key;
+                                                   struct node *next;
+                                                };
+
+                                                struct node *head = NULL;
+                                                struct node *current = NULL;
+
+                                                struct node* method_2_complext_nested_if() {
+                                                   struct node *tempLink = head;
+                                                   head = head->next;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+
+                                                        if(head==tempLink) {
+                                                            head = tail;
+                                                        }
+                                                        else {
+                                                            head = tail->next;
+                                                        }
+
+                                                        head = tail->next;
+                                                   }
+
+                                                    head = tail;
+
+                                                    if(head==tempLink) {
+                                                        head = tail;
+
+                                                        if(head==tempLink) {
+                                                            head = tail;
+                                                        }
+                                                        else {
+                                                            head = tail->next;
+                                                        }
+
+                                                        head = tail->next;
+                                                   } else {
+                                                        head = tail->next;
+
+                                                        if(head==tempLink) {
+                                                            head = tail;
+                                                        }
+
+                                                        tail = NULL;
+                                                   }
+
+                                                   head->next = NULL;
+
+                                                   return tempLink;
+                                                }
+                                                main() {
+                                                }",
+                            new Dictionary<string, int>
+                            {
+                                {"method_2_complext_nested_if", 14},
+                            });
+                #endregion*/
             }
         }
 

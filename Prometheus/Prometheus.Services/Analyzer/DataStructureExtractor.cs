@@ -57,6 +57,7 @@ namespace Prometheus.Services
                     .GetName();
             var ifStatement = new IfStatement
             {
+                Context = context,
                 StartIndex = context.Start.StartIndex,
                 EndIndex = context.Stop.StopIndex,
                 Assignments = assignments
