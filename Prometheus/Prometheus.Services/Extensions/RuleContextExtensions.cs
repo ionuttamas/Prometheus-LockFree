@@ -14,8 +14,12 @@ namespace Prometheus.Services.Extensions {
             return context.Start.Text;
         }
 
-        public static string GetName(this RuleContext context) {
-            return ((ParserRuleContext)context).GetName();
+        public static int GetStartIndex(this ParserRuleContext context) {
+            return context.Start.StartIndex;
+        }
+
+        public static int GetStopIndex(this ParserRuleContext context) {
+            return context.Stop.StopIndex;
         }
 
         public static string GetContextText(this ParserRuleContext context)
