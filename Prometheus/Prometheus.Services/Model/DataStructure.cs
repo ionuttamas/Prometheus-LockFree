@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Prometheus.Common;
+using Prometheus.Services.Extensions;
 
 namespace Prometheus.Services.Model
 {
@@ -142,47 +143,42 @@ namespace Prometheus.Services.Model
         }
 
         /// <summary>
-        /// Returns for [1 if() {2 ... 3}] the entries: {2, {3, 1}}
+        /// Returns for [1 if() {2 ... 3}] the entries: {2, {3, 1}} where 1,2,3 are the indexes
         /// </summary>
-        private Dictionary<int, Tuple<int, int>> GetSelectionRegions(IfStatement statement)
-        {
+        private Dictionary<int, Tuple<int, int>> GetSelectionRegions(IfStatement statement) {
             var result = new Dictionary<int, Tuple<int, int>>();
 
             if (statement == null)
                 return result;
 
-            if (statement.IfStatements.IsNullOrEmpty() && statement.ElseStatements.IsNullOrEmpty())
-            {
-                result[statement.Context.statement()[0].Start.StartIndex] = Tuple.Create(statement.EndIndex, statement.StartIndex);
+            if (statement.IfStatements.IsNullOrEmpty() && statement.ElseStatements.IsNullOrEmpty()) {
+                result[statement.Context.statement()[0].GetStartIndex()] = Tuple.Create(statement.EndIndex,
+                    statement.StartIndex);
                 return result;
             }
 
-            if (statement.IfStatements.Any())
-            {
-                var regions = statement
-                    .IfStatements
-                    .Select(GetSelectionRegions)
-                    .Concat(statement
-                            .ElseStatements
-                            .Select(GetSelectionRegions))
-                    .Aggregate(new Dictionary<int, Tuple<int, int>>(), (accumulator, value) => accumulator.Merge(value))
-                    .OrderBy(x=>x.Key)
-                    .ToList();
+            var regions = statement
+                .IfStatements
+                .Select(GetSelectionRegions)
+                .Concat(statement
+                    .ElseStatements
+                    .Select(GetSelectionRegions))
+                .Aggregate(new Dictionary<int, Tuple<int, int>>(), (accumulator, value) => accumulator.Merge(value))
+                .OrderBy(x => x.Key)
+                .ToList();
 
-                result[statement.Context.statement()[0].compoundStatement().Start.StartIndex] = Tuple.Create(statement.EndIndex, -1);
+            result[statement.Context.statement()[0].compoundStatement().GetStartIndex()] =
+                Tuple.Create(statement.EndIndex, -1);
 
-                if (regions.Count > 1)
-                {
-                    result[regions[0].Value.Item1] = Tuple.Create(regions[1].Value.Item2, -1);
-                }
-
-                for (int i = 1; i < regions.Count; i++)
-                {
-                    result[regions[i-1].Value.Item1] = Tuple.Create(regions[i].Value.Item2, -1);
-                }
-
-                result[regions.Last().Value.Item1] = Tuple.Create(statement.EndIndex, -1);
+            if (regions.Count > 1) {
+                result[regions[0].Value.Item1] = Tuple.Create(regions[1].Value.Item2, -1);
             }
+
+            for (int i = 1; i < regions.Count; i++) {
+                result[regions[i - 1].Value.Item1] = Tuple.Create(regions[i].Value.Item2, -1);
+            }
+
+            result[regions.Last().Value.Item1] = Tuple.Create(statement.EndIndex, -1);
 
             return result;
         }
@@ -195,7 +191,7 @@ namespace Prometheus.Services.Model
                 return result;
 
             if (statement.IfStatements.IsNullOrEmpty()) {
-                result[statement.Context.statement()[0].Start.StartIndex] = Tuple.Create(statement.EndIndex, statement.StartIndex);
+                result[statement.Context.GetStartIndex()] = Tuple.Create(statement.EndIndex, statement.StartIndex);
                 return result;
             }
 
@@ -207,7 +203,8 @@ namespace Prometheus.Services.Model
                     .OrderBy(x => x.Key)
                     .ToList();
 
-                result[statement.Context.statement()[0].compoundStatement().Start.StartIndex] = Tuple.Create(statement.EndIndex, -1);
+                //todo: statement.Context => can be either a simple statement or a complex if-based statement
+                result[statement.Context.GetStartIndex()] = Tuple.Create(statement.EndIndex, -1);
 
                 if (regions.Count > 1) {
                     result[regions[0].Value.Item1] = Tuple.Create(regions[1].Value.Item2, -1);

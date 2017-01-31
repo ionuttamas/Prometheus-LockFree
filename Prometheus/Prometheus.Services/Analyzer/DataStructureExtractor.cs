@@ -44,24 +44,30 @@ namespace Prometheus.Services
             return base.VisitFunctionDefinition(context);
         }
 
-        public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context)
-        {
+        public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
             var assignments = context
                 .GetFirstDescendant<CLanguageParser.CompoundStatementContext>()
                 .GetFirstLevelDescendants<CLanguageParser.AssignmentExpressionContext>()
-                .Where(x=>x.ChildCount>1)
+                .Where(x => x.ChildCount > 1)
                 .ToList();
             var functionName = context
-                    .GetFunction()
-                    .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
-                    .GetName();
-            var ifStatement = new IfStatement
-            {
+                .GetFunction()
+                .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
+                .GetName();
+            var ifStatement = new IfStatement {
                 Context = context,
-                Assignments = assignments
+                Assignments = assignments,
+                ElseStatements = context
+                                    .statement()
+                                    .Skip(1)
+                                    .Select(x => new ElseStatement {
+                                        Context = x,
+                                        Assignments = assignments
+                                    })
+                                    .ToList()
             };
 
-            DataStructure[functionName].IfStatements.Add(ifStatement);
+            DataStructure[functionName].AddIfStatement(ifStatement);
 
             return base.VisitSelectionStatement(context);
         }

@@ -12,14 +12,12 @@ namespace Prometheus.Services.Model
         public CLanguageParser.CompoundStatementContext Context { get; set; }
         public List<Variable> LocalVariables { get; }
         public List<IfStatement> IfStatements { get; }
-        public List<Region> Regions { get; }
 
         public Operation(string name)
         {
             Name = name;
             IfStatements = new List<IfStatement>();
             LocalVariables = new List<Variable>();
-            Regions = new List<Region>();
         }
 
         public Operation(string name, List<Variable> variables)
@@ -45,6 +43,19 @@ namespace Prometheus.Services.Model
             {
                 variable.DependentVariables.UnionWith(dependantVariables);
             }
+        }
+
+        public void AddIfStatement(IfStatement statement) {
+            var parentIfStatement = IfStatements
+                .FirstOrDefault(x => x.StartIndex < statement.StartIndex &&
+                                     statement.EndIndex < x.EndIndex);
+
+            if (parentIfStatement != null) {
+                parentIfStatement.AddIfStatement(statement);
+                return;
+            }
+
+            IfStatements.Add(statement);
         }
 
         public Variable this[string name]

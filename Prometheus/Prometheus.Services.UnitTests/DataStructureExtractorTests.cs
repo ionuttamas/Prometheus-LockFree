@@ -353,27 +353,6 @@ namespace Prometheus.Services.UnitTests
                                                 struct node *head = NULL;
                                                 struct node *current = NULL;
 
-                                                void method_no_ifs(int key, int data) {
-                                                   int variable;
-                                                   struct node *link = (struct node*) malloc(sizeof(struct node));
-
-                                                   link->key = key;
-                                                   link->data = data;
-                                                   link->next = head;
-                                                   head = link;
-                                                }
-
-                                                struct node* method_1_simple_if() {
-                                                   struct node *tempLink = head;
-                                                   head = head->next;
-
-                                                   if(head==tempLink) {
-                                                        head = tail;
-                                                   }
-
-                                                   return tempLink;
-                                                }
-
                                                 struct node* method_1_if_else() {
                                                    struct node *tempLink = head;
                                                    head = head->next;
@@ -387,12 +366,13 @@ namespace Prometheus.Services.UnitTests
 
                                                    return tempLink;
                                                 }
+
                                                 main() {
                                                 }",
                             new Dictionary<string, int>
                             {
-                                {"method_no_ifs", 1},
-                                {"method_1_simple_if", 3},
+                                //{"method_no_ifs", 1},
+                                //{"method_1_simple_if", 3},
                                 {"method_1_if_else", 4},
                             });
                 #endregion
