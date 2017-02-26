@@ -107,7 +107,7 @@ namespace Prometheus.Services.Model
 
                 OperationInternalCodes[operation.Name] = operationRegions
                     .ToDictionary(x => x.Key,
-                                  x => new Dictionary<int, int> {{x.Key, codeCounter++}});
+                                  x => new Dictionary<int, int> {{x.Value, codeCounter++}});
             }
         }
 
@@ -122,99 +122,142 @@ namespace Prometheus.Services.Model
 
             var regions = operation
                     .IfStatements
-                    .Select(GetSelectionRegions)
-                    .Aggregate(new Dictionary<int, Tuple<int, int>>(), (accumulator, value) => accumulator.Merge(value))
-                    .OrderBy(x => x.Key)
+                    .SelectMany(GetSelectionRegions)
+                    .OrderBy(x => x.StartBodyIndex)
                     .ToList();
-            result[operation.StartIndex] = regions[0].Value.Item2;
 
-            if (regions.Count > 1) {
-                result[regions[0].Value.Item1] = regions[1].Value.Item2;
+            result[operation.StartIndex] = regions[0].StartStatementIndex;
+            result[regions.Last().EndBodyIndex] = operation.EndIndex;
+
+            foreach (var region in regions)
+            {
+                result[region.StartBodyIndex] = region.EndBodyIndex;
             }
 
-            for (int i = 1; i < regions.Count; i++) {
-                result[regions[i - 1].Value.Item1] = regions[i].Value.Item2;
+            for (int i = 1; i < operation.IfStatements.Count; i++)
+            {
+                result[operation.IfStatements[i-1].EndIndex] = operation.IfStatements[i].StartIndex;
             }
-
-            result[regions.Last().Value.Item1] = operation.EndIndex;
-            result.Merge(regions.ToDictionary(x => x.Key, x => x.Value.Item1));
 
             return result;
         }
 
-        /// <summary>
-        /// Returns for [1 if() {2 ... 3}] the entries: {2, {3, 1}} where 1,2,3 are the indexes
-        /// </summary>
-        private Dictionary<int, Tuple<int, int>> GetSelectionRegions(IfStatement statement) {
-            var result = new Dictionary<int, Tuple<int, int>>();
+        private List<SelectionRegion> GetSelectionRegions(IfStatement statement) {
+            var result = new List<SelectionRegion>();
 
             if (statement == null)
                 return result;
 
             if (statement.IfStatements.IsNullOrEmpty() && statement.ElseStatements.IsNullOrEmpty()) {
-                result[statement.Context.statement()[0].GetStartIndex()] = Tuple.Create(statement.EndIndex,
-                    statement.StartIndex);
+                result.Add(new SelectionRegion
+                {
+                    StartStatementIndex = statement.StartIndex,
+                    StartBodyIndex = statement.Context.statement()[0].GetStartIndex(),
+                    EndBodyIndex = statement.EndIndex
+                });
+
                 return result;
             }
 
             var regions = statement
                 .IfStatements
-                .Select(GetSelectionRegions)
-                .Concat(statement
-                    .ElseStatements
-                    .Select(GetSelectionRegions))
-                .Aggregate(new Dictionary<int, Tuple<int, int>>(), (accumulator, value) => accumulator.Merge(value))
-                .OrderBy(x => x.Key)
+                .SelectMany(GetSelectionRegions)
+                .OrderBy(x => x.StartBodyIndex)
                 .ToList();
 
-            result[statement.Context.statement()[0].compoundStatement().GetStartIndex()] =
-                Tuple.Create(statement.EndIndex, -1);
+            if (regions.Count > 0)
+            {
+                result.Add(new SelectionRegion
+                {
+                    StartStatementIndex = statement.StartIndex,
+                    StartBodyIndex = statement.Context.statement()[0].compoundStatement().GetStartIndex(),
+                    EndBodyIndex = regions[0].StartStatementIndex
+                });
 
-            if (regions.Count > 1) {
-                result[regions[0].Value.Item1] = Tuple.Create(regions[1].Value.Item2, -1);
+                result.Add(new SelectionRegion
+                {
+                    StartStatementIndex = -1,
+                    StartBodyIndex = regions.Last().EndBodyIndex,
+                    EndBodyIndex = statement.EndIndex
+                });
+
+                result.AddRange(regions);
+
+                for (int i = 1; i < statement.IfStatements.Count; i++) {
+                    result.Add(new SelectionRegion {
+                        StartStatementIndex = -1,
+                        StartBodyIndex = statement.IfStatements[i - 1].EndIndex,
+                        EndBodyIndex = statement.IfStatements[i].StartIndex
+                    });
+                }
+            }
+            else
+            {
+                result.Add(new SelectionRegion {
+                    StartStatementIndex = statement.StartIndex,
+                    StartBodyIndex = statement.Context.statement()[0].compoundStatement().GetStartIndex(),
+                    EndBodyIndex = statement.Context.statement()[0].compoundStatement().GetStopIndex()
+                });
             }
 
-            for (int i = 1; i < regions.Count; i++) {
-                result[regions[i - 1].Value.Item1] = Tuple.Create(regions[i].Value.Item2, -1);
-            }
-
-            result[regions.Last().Value.Item1] = Tuple.Create(statement.EndIndex, -1);
+            result.AddRange(statement.ElseStatements.SelectMany(GetSelectionRegions));
 
             return result;
         }
 
-        private Dictionary<int, Tuple<int, int>> GetSelectionRegions(ElseStatement statement)
+        private List<SelectionRegion> GetSelectionRegions(ElseStatement statement)
         {
-            var result = new Dictionary<int, Tuple<int, int>>();
+            var result = new List<SelectionRegion>();
 
             if (statement == null)
                 return result;
 
             if (statement.IfStatements.IsNullOrEmpty()) {
-                result[statement.Context.GetStartIndex()] = Tuple.Create(statement.EndIndex, statement.StartIndex);
+                result.Add(new SelectionRegion {
+                    StartStatementIndex = statement.StartIndex,
+                    StartBodyIndex = statement.Context.GetStartIndex(),
+                    EndBodyIndex = statement.EndIndex
+                });
+
                 return result;
             }
 
-            if (statement.IfStatements.Any()) {
-                var regions = statement
-                    .IfStatements
-                    .Select(GetSelectionRegions)
-                    .Aggregate(new Dictionary<int, Tuple<int, int>>(), (accumulator, value) => accumulator.Merge(value))
-                    .OrderBy(x => x.Key)
-                    .ToList();
+            var regions = statement
+                .IfStatements
+                .SelectMany(GetSelectionRegions)
+                .OrderBy(x => x.StartBodyIndex)
+                .ToList();
 
-                //todo: statement.Context => can be either a simple statement or a complex if-based statement
-                result[statement.Context.GetStartIndex()] = Tuple.Create(statement.EndIndex, -1);
+            if (regions.Count > 0) {
+                result.Add(new SelectionRegion {
+                    StartStatementIndex = statement.StartIndex,
+                    StartBodyIndex = statement.Context.GetStartIndex(),
+                    EndBodyIndex = regions[0].StartStatementIndex
+                });
 
-                if (regions.Count > 1) {
-                    result[regions[0].Value.Item1] = Tuple.Create(regions[1].Value.Item2, -1);
+                result.Add(new SelectionRegion {
+                    StartStatementIndex = -1,
+                    StartBodyIndex = regions.Last().EndBodyIndex,
+                    EndBodyIndex = statement.EndIndex
+                });
+
+                result.AddRange(regions);
+
+                for (int i = 1; i < statement.IfStatements.Count; i++) {
+                    result.Add(new SelectionRegion {
+                        StartStatementIndex = -1,
+                        StartBodyIndex = statement.IfStatements[i - 1].EndIndex,
+                        EndBodyIndex = statement.IfStatements[i].StartIndex
+                    });
                 }
-
-                for (int i = 1; i < regions.Count; i++) {
-                    result[regions[i - 1].Value.Item1] = Tuple.Create(regions[i].Value.Item2, -1);
-                }
-
-                result[regions.Last().Value.Item1] = Tuple.Create(statement.EndIndex, -1);
+            }
+            else
+            {
+                result.Add(new SelectionRegion {
+                    StartStatementIndex = statement.StartIndex,
+                    StartBodyIndex = statement.Context.GetStartIndex(),
+                    EndBodyIndex = statement.EndIndex
+                });
             }
 
             return result;
@@ -236,6 +279,13 @@ namespace Prometheus.Services.Model
 
                 LinkToGlobalState(dependentVariable);
             }
+        }
+
+        private class SelectionRegion
+        {
+            public int StartStatementIndex { get; set; }
+            public int StartBodyIndex { get; set; }
+            public int EndBodyIndex { get; set; }
         }
     }
 }

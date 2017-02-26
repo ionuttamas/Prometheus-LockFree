@@ -48,6 +48,10 @@ namespace Prometheus.Services.Model
         public List<IfStatement> IfStatements { get; set; }
         public List<CLanguageParser.AssignmentExpressionContext> Assignments { get; set; }
 
+        public ElseStatement() {
+            IfStatements = new List<IfStatement>();
+        }
+
         public void AddIfStatement(IfStatement statement) {
             var parentIfStatement = IfStatements
                 .FirstOrDefault(x => x.StartIndex < statement.StartIndex &&

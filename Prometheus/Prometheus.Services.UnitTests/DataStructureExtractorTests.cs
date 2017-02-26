@@ -26,7 +26,11 @@ namespace Prometheus.Services.UnitTests
         {
             var codeVisitor = new DataStructureExtractor();
             codeVisitor.Visit(codeInput);
-            Assert.True(operationRegions.All(x => codeVisitor.DataStructure.OperationInternalCodes[x.Key].Count == x.Value));
+
+            foreach (var operationRegion in operationRegions)
+            {
+                Assert.AreEqual(operationRegion.Value, codeVisitor.DataStructure.OperationInternalCodes[operationRegion.Key].Count);
+            }
         }
 
         #region Test Case Sources
@@ -353,7 +357,7 @@ namespace Prometheus.Services.UnitTests
                                                 struct node *head = NULL;
                                                 struct node *current = NULL;
 
-                                                struct node* method_1_if_else() {
+                                                struct node* method_one_if_else() {
                                                    struct node *tempLink = head;
                                                    head = head->next;
 
@@ -371,12 +375,10 @@ namespace Prometheus.Services.UnitTests
                                                 }",
                             new Dictionary<string, int>
                             {
-                                //{"method_no_ifs", 1},
-                                //{"method_1_simple_if", 3},
-                                {"method_1_if_else", 4},
+                                {"method_one_if_else", 4},
                             });
                 #endregion
-/*
+
                 #region Second case
                 yield return new TestCaseData(@"struct node {
                                                    int data;
@@ -387,7 +389,7 @@ namespace Prometheus.Services.UnitTests
                                                 struct node *head = NULL;
                                                 struct node *current = NULL;
 
-                                                struct node* method_2_simple_if_else() {
+                                                struct node* method_two_simple_if_else() {
                                                    struct node *tempLink = head;
                                                    head = head->next;
 
@@ -410,7 +412,25 @@ namespace Prometheus.Services.UnitTests
                                                    return tempLink;
                                                 }
 
-                                                struct node* method_1_nested_if() {
+                                                main() {
+                                                }",
+                            new Dictionary<string, int>
+                            {
+                                {"method_two_simple_if_else", 7}
+                            });
+                #endregion
+
+                #region Third case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   int key;
+                                                   struct node *next;
+                                                };
+
+                                                struct node *head = NULL;
+                                                struct node *current = NULL;
+
+                                                struct node* method_one_nested_if() {
                                                    struct node *tempLink = head;
                                                    head = head->next;
 
@@ -432,11 +452,29 @@ namespace Prometheus.Services.UnitTests
                                                    return tempLink;
                                                 }
 
-                                                struct node* method_2_nested_if() {
-                                                   struct node *tempLink = head;
-                                                   head = head->next;
+                                                main() {
+                                                }",
+                            new Dictionary<string, int>
+                            {
+                                {"method_one_nested_if", 6}
+                            });
+                #endregion
 
-                                                   if(head==tempLink) {
+                #region Fourth case
+                yield return new TestCaseData(@"struct node {
+                                                    int data;
+                                                    int key;
+                                                    struct node *next;
+                                                };
+
+                                                struct node *head = NULL;
+                                                struct node *current = NULL;
+
+                                                struct node* method_two_nested_if() {
+                                                    struct node *tempLink = head;
+                                                    head = head->next;
+
+                                                    if(head==tempLink) {
                                                         head = tail;
 
                                                         if(head==tempLink) {
@@ -447,7 +485,7 @@ namespace Prometheus.Services.UnitTests
                                                         }
 
                                                         head = tail->next;
-                                                   }
+                                                    }
 
                                                     head = tail;
                                                     tail = NULL;
@@ -463,37 +501,35 @@ namespace Prometheus.Services.UnitTests
                                                         }
 
                                                         head = tail->next;
-                                                   }
+                                                    }
 
-                                                   head->next = NULL;
+                                                    head->next = NULL;
 
-                                                   return tempLink;
+                                                    return tempLink;
                                                 }
                                                 main() {
                                                 }",
                             new Dictionary<string, int>
                             {
-                                {"method_2_simple_if_else", 7},
-                                {"method_1_nested_if", 6},
-                                {"method_2_nested_if", 11},
+                                {"method_two_nested_if", 11},
                             });
                 #endregion
 
-                #region Third case
+                #region Fifth case
                 yield return new TestCaseData(@"struct node {
-                                                   int data;
-                                                   int key;
-                                                   struct node *next;
+                                                    int data;
+                                                    int key;
+                                                    struct node *next;
                                                 };
 
                                                 struct node *head = NULL;
                                                 struct node *current = NULL;
 
-                                                struct node* method_2_complext_nested_if() {
-                                                   struct node *tempLink = head;
-                                                   head = head->next;
+                                                struct node* method_two_complex_nested_if() {
+                                                    struct node *tempLink = head;
+                                                    head = head->next;
 
-                                                   if(head==tempLink) {
+                                                    if(head==tempLink) {
                                                         head = tail;
 
                                                         if(head==tempLink) {
@@ -504,7 +540,7 @@ namespace Prometheus.Services.UnitTests
                                                         }
 
                                                         head = tail->next;
-                                                   }
+                                                    }
 
                                                     head = tail;
 
@@ -519,7 +555,7 @@ namespace Prometheus.Services.UnitTests
                                                         }
 
                                                         head = tail->next;
-                                                   } else {
+                                                    } else {
                                                         head = tail->next;
 
                                                         if(head==tempLink) {
@@ -527,19 +563,102 @@ namespace Prometheus.Services.UnitTests
                                                         }
 
                                                         tail = NULL;
-                                                   }
+                                                    }
 
-                                                   head->next = NULL;
+                                                    head->next = NULL;
 
-                                                   return tempLink;
+                                                    return tempLink;
                                                 }
                                                 main() {
                                                 }",
                             new Dictionary<string, int>
                             {
-                                {"method_2_complext_nested_if", 14},
+                                {"method_two_complex_nested_if", 14},
                             });
                 #endregion*/
+
+                //todo: currently if statements with multiple else if statements are not processed correctly
+                #region Sixth case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   int key;
+                                                   struct node *next;
+                                                };
+
+                                                struct node *head = NULL;
+                                                struct node *current = NULL;
+
+                                                struct node* method_if_multiple_elses() {
+                                                   struct node *tempLink = head;
+                                                   head = head->next;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+                                                   }
+                                                   else if (1==1) {
+                                                        head = tail->next;
+                                                   }
+                                                   else {
+                                                        head = tail->next->next;
+                                                   }
+
+                                                   return tempLink;
+                                                }
+
+                                                main() {
+                                                }",
+                            new Dictionary<string, int>
+                            {
+                                {"method_if_multiple_elses", 5},
+                            });
+                #endregion
+
+                #region Seventh case
+                yield return new TestCaseData(@"struct node {
+                                                   int data;
+                                                   int key;
+                                                   struct node *next;
+                                                };
+
+                                                struct node *head = NULL;
+                                                struct node *current = NULL;
+
+                                                struct node* method_if_multiple_elses() {
+                                                   struct node *tempLink = head;
+                                                   head = head->next;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+                                                   }
+                                                   else if (true) {
+                                                        head = tail->next;
+                                                   }
+                                                   else {
+                                                        head = tail->next->>next;
+                                                   }
+
+                                                   head = tail;
+
+                                                   if(head==tempLink) {
+                                                        head = tail;
+                                                   }
+                                                   else if (true) {
+                                                        head = tail->next;
+                                                   }
+                                                   else {
+                                                        head = tail->next->next;
+                                                   }
+
+                                                   return tempLink;
+                                                }
+
+                                                main() {
+                                                }",
+                            new Dictionary<string, int>
+                            {
+                                {"method_if_multiple_elses", 9},
+                            });
+                #endregion
             }
         }
 
