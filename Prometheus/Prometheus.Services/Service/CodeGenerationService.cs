@@ -10,6 +10,8 @@ using Prometheus.Services.Model;
 using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Service {
+
+    //todo: needs to be broken down into individual services
     public class CodeGenerationService
     {
         private const string POINTER_ACCESS_MARKER = "->";
@@ -58,8 +60,8 @@ namespace Prometheus.Services.Service {
                 .Where(x => x > 0)
                 .Select(x => x + bodyContext.Start.StartIndex);
             insertionIndex = Math.Min(insertionIndex, globalVariableIndexes.Any() ? globalVariableIndexes.Min() : insertionIndex);
-            Operation operation = _dataStructure[operationName];
-            IfStatement ifStatement = operation.IfStatements.FirstOrDefault(x => x.StartIndex < insertionIndex && insertionIndex < x.EndIndex);
+            Method method = _dataStructure[operationName];
+            IfStatement ifStatement = method.IfStatements.FirstOrDefault(x => x.StartIndex < insertionIndex && insertionIndex < x.EndIndex);
 
             if (ifStatement != null)
             {

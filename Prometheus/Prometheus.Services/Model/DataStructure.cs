@@ -10,20 +10,20 @@ namespace Prometheus.Services.Model
     {
         public List<Structure> Structures { get; set; }
         public State GlobalState { get; set; }
-        public List<Operation> Operations { get; set; }
+        public List<Method> Operations { get; set; }
         public Dictionary<string, int> OperationCodes { get; }
         public Dictionary<string, Dictionary<int, Dictionary<int, int>>> OperationInternalCodes { get; }
 
         public DataStructure()
         {
             GlobalState = new State();
-            Operations = new List<Operation>();
+            Operations = new List<Method>();
             Structures = new List<Structure>();
             OperationCodes = new Dictionary<string, int>();
             OperationInternalCodes = new Dictionary<string, Dictionary<int, Dictionary<int, int>>>();
         }
 
-        public Operation this[string name]
+        public Method this[string name]
         {
             get { return Operations.FirstOrDefault(x => x.Name == name); }
         }
@@ -41,12 +41,12 @@ namespace Prometheus.Services.Model
             GlobalState.Add(variable);
         }
 
-        public void AddOperation(Operation operation)
+        public void AddOperation(Method method)
         {
-            if (this[operation.Name] != null)
+            if (this[method.Name] != null)
                 return;
 
-            Operations.Add(operation);
+            Operations.Add(method);
         }
 
         public void PostProcess()
@@ -72,15 +72,15 @@ namespace Prometheus.Services.Model
             ExtractRegions();
         }
 
-        private void ProcessOperation(Operation operation)
+        private void ProcessOperation(Method method)
         {
             List<string> operationVariables = GlobalState
                 .Variables
                 .Select(x=>x.Name)
-                .Except(operation.LocalVariables.Select(x => x.Name))
+                .Except(method.LocalVariables.Select(x => x.Name))
                 .ToList();
 
-            foreach (var localVariable in operation.LocalVariables)
+            foreach (var localVariable in method.LocalVariables)
             {
                 localVariable.DependentVariables
                     .RemoveWhere(x => !operationVariables.Contains(x) && !GlobalState.Contains(x));
@@ -88,7 +88,7 @@ namespace Prometheus.Services.Model
                     .RemoveWhere(x => x == localVariable.Name);
             }
 
-            foreach (var localVariable in operation.LocalVariables)
+            foreach (var localVariable in method.LocalVariables)
             {
                 if (localVariable.DependentVariables.Any(x => GlobalState.Contains(x)))
                 {
@@ -111,32 +111,32 @@ namespace Prometheus.Services.Model
             }
         }
 
-        private Dictionary<int, int> ExtractOperationRegions(Operation operation)
+        private Dictionary<int, int> ExtractOperationRegions(Method method)
         {
             var result = new Dictionary<int,int>();
 
-            if (operation.IfStatements.IsNullOrEmpty()) {
-                result[operation.StartIndex] = operation.EndIndex;
+            if (method.IfStatements.IsNullOrEmpty()) {
+                result[method.StartIndex] = method.EndIndex;
                 return result;
             }
 
-            var regions = operation
+            var regions = method
                     .IfStatements
                     .SelectMany(GetSelectionRegions)
                     .OrderBy(x => x.StartBodyIndex)
                     .ToList();
 
-            result[operation.StartIndex] = regions[0].StartStatementIndex;
-            result[regions.Last().EndBodyIndex] = operation.EndIndex;
+            result[method.StartIndex] = regions[0].StartStatementIndex;
+            result[regions.Last().EndBodyIndex] = method.EndIndex;
 
             foreach (var region in regions)
             {
                 result[region.StartBodyIndex] = region.EndBodyIndex;
             }
 
-            for (int i = 1; i < operation.IfStatements.Count; i++)
+            for (int i = 1; i < method.IfStatements.Count; i++)
             {
-                result[operation.IfStatements[i-1].EndIndex] = operation.IfStatements[i].StartIndex;
+                result[method.IfStatements[i-1].EndIndex] = method.IfStatements[i].StartIndex;
             }
 
             return result;

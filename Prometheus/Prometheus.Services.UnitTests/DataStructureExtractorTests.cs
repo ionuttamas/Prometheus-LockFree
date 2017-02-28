@@ -8,14 +8,14 @@ namespace Prometheus.Services.UnitTests
     public class DataStructureExtractorTests
     {
         [TestCaseSource(nameof(DataStructureCases))]
-        public void DataStructureExtractor_ExtractsDataStructure_PerformsCorrectly(string codeInput, string[] globalVariables, Structure[] structures, Operation[] operations)
+        public void DataStructureExtractor_ExtractsDataStructure_PerformsCorrectly(string codeInput, string[] globalVariables, Structure[] structures, Method[] methods)
         {
             var codeVisitor = new DataStructureExtractor();
             codeVisitor.Visit(codeInput);
             Assert.True(globalVariables.All(x => codeVisitor.DataStructure.GlobalState.Contains(x)));
             Assert.True(structures.All(x => codeVisitor.DataStructure.Structures.Contains(x)));
 
-            foreach (var operation in operations)
+            foreach (var operation in methods)
             {
                 Assert.True(codeVisitor.DataStructure.Operations.Contains(operation));
             }
@@ -76,14 +76,14 @@ namespace Prometheus.Services.UnitTests
                             } },
                             new[]
                             {
-                        new Operation("insertFirst", new List<Variable>
+                        new Method("insertFirst", new List<Variable>
                             {
                                 new Variable("localFirst", "int", "insertFirst") {DependentVariables = new HashSet<string>(), LinksToGlobalState = false},
                                 new Variable("localSecond", "int", "insertFirst") {DependentVariables = new HashSet<string>(), LinksToGlobalState = false},
                                 new Variable("localThird", "struct node *", "insertFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
                             }
                         ),
-                        new Operation("main")
+                        new Method("main")
                             });
                 #endregion
 
@@ -172,29 +172,29 @@ namespace Prometheus.Services.UnitTests
                             } },
                             new[]
                             {
-                        new Operation("insertFirst", new List<Variable>
+                        new Method("insertFirst", new List<Variable>
                             {
                                 new Variable("variable", "int", "insertFirst") {DependentVariables = new HashSet<string>(), LinksToGlobalState = false},
                                 new Variable("link", "struct node *", "insertFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
                             }
                         ),
-                        new Operation("deleteFirst", new List<Variable>
+                        new Method("deleteFirst", new List<Variable>
                             {
                                 new Variable("tempLink", "struct node *", "deleteFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
                             }
                         ),
-                        new Operation("find", new List<Variable>
+                        new Method("find", new List<Variable>
                             {
                                 new Variable("current", "struct node *", "find") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
                             }
                         ),
-                        new Operation("delete", new List<Variable>
+                        new Method("delete", new List<Variable>
                             {
                                 new Variable("current", "struct node *", "delete") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
                                 new Variable("previous", "struct node *", "delete") {DependentVariables = new HashSet<string> {"current"}, LinksToGlobalState = true},
                             }
                         ),
-                        new Operation("main")
+                        new Method("main")
                             });
                 #endregion
 
@@ -248,13 +248,13 @@ namespace Prometheus.Services.UnitTests
                             } },
                             new[]
                             {
-                                new Operation("delete", new List<Variable>
+                                new Method("delete", new List<Variable>
                                     {
                                         new Variable("current", "struct node *", "delete") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true},
                                         new Variable("previous", "struct node *", "delete") {DependentVariables = new HashSet<string> {"current"}, LinksToGlobalState = true},
                                     }
                                 ),
-                                new Operation("main")
+                                new Method("main")
                             });
                 #endregion
 
@@ -289,12 +289,12 @@ namespace Prometheus.Services.UnitTests
                             } },
                             new[]
                             {
-                                new Operation("deleteFirst", new List<Variable>
+                                new Method("deleteFirst", new List<Variable>
                                     {
                                         new Variable("tempLink", "struct node *", "deleteFirst") {DependentVariables = new HashSet<string> {"head"}, LinksToGlobalState = true}
                                     }
                                 ),
-                                new Operation("main")
+                                new Method("main")
                             });
                 #endregion
 
@@ -337,7 +337,7 @@ namespace Prometheus.Services.UnitTests
                             },
                             new[]
                             {
-                                new Operation("main")
+                                new Method("main")
                             });
                 #endregion
             }

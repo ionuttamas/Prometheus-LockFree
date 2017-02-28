@@ -33,7 +33,7 @@ namespace Prometheus.Services
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context) {
             string functionName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
             var bodyContext = context.compoundStatement();
-            var operation = new Operation(functionName)
+            var operation = new Method(functionName)
             {
                 StartIndex = bodyContext.Start.StartIndex,
                 EndIndex = bodyContext.Stop.StopIndex,

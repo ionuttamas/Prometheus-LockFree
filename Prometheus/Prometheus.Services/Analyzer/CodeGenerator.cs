@@ -179,7 +179,7 @@ namespace Prometheus.Services {
                         }
 
                         KeyValuePair<string, string> assignment = GetVariableAssignment(declaration);
-                        KeyValuePair<Operation, List<string>> entry = operationsDeclarations
+                        KeyValuePair<Method, List<string>> entry = operationsDeclarations
                             .First(x => x.Key.StartIndex < update.Key && update.Key < x.Key.EndIndex);
 
                         if (!entry.Value.Contains(assignment.Key))

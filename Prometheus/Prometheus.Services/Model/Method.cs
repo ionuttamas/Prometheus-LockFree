@@ -4,7 +4,7 @@ using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Model
 {
-    public class Operation
+    public class Method
     {
         public string Name { get; }
         public int StartIndex { get; set; }
@@ -13,14 +13,14 @@ namespace Prometheus.Services.Model
         public List<Variable> LocalVariables { get; }
         public List<IfStatement> IfStatements { get; }
 
-        public Operation(string name)
+        public Method(string name)
         {
             Name = name;
             IfStatements = new List<IfStatement>();
             LocalVariables = new List<Variable>();
         }
 
-        public Operation(string name, List<Variable> variables)
+        public Method(string name, List<Variable> variables)
             : this(name)
         {
             LocalVariables = variables;
@@ -68,7 +68,7 @@ namespace Prometheus.Services.Model
             if ((obj == null) || GetType() != obj.GetType())
                 return false;
 
-            var operation = (Operation)obj;
+            var operation = (Method)obj;
 
             if (Name != operation.Name)
                 return false;
