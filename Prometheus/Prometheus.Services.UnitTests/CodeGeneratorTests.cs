@@ -11,7 +11,10 @@ namespace Prometheus.Services.UnitTests
 
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
-            var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
+            var typeService = new TypeService(extractor.DataStructure);
+            var operationService = new OperationService(typeService);
+            var atomicService = new AtomicService();
+            var generationService = new CodeGenerationService(extractor.DataStructure, typeService, operationService, atomicService);
             var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 
@@ -29,7 +32,10 @@ namespace Prometheus.Services.UnitTests
         public void CodeGenerator_GeneratesComparisonSelectionDeclarations_Correctly(string codeInput, string[] declarations) {
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
-            var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
+            var typeService = new TypeService(extractor.DataStructure);
+            var operationService = new OperationService(typeService);
+            var atomicService = new AtomicService();
+            var generationService = new CodeGenerationService(extractor.DataStructure, typeService, operationService, atomicService);
             var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 
@@ -46,7 +52,10 @@ namespace Prometheus.Services.UnitTests
         public void CodeGenerator_GeneratesQueueDeclarations_Correctly(string codeInput, string[] declarations) {
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
-            var generationService = new CodeGenerationService(extractor.DataStructure, new TypeService(extractor.DataStructure));
+            var typeService = new TypeService(extractor.DataStructure);
+            var operationService = new OperationService(typeService);
+            var atomicService = new AtomicService();
+            var generationService = new CodeGenerationService(extractor.DataStructure, typeService, operationService, atomicService);
             var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 

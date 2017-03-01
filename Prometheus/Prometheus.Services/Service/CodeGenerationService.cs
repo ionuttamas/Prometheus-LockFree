@@ -11,19 +11,23 @@ using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Service {
 
-    //todo: needs to be broken down into individual services
+    //todo: needs to be broken down into individual services and renamed
     public class CodeGenerationService
     {
         private const string POINTER_ACCESS_MARKER = "->";
         private const string SNAPSHOT_NAME_MARKER = "old";
         private readonly DataStructure _dataStructure;
         private readonly TypeService _typeService;
+        private readonly OperationService _operationService;
+        private readonly AtomicService _atomicService;
         private readonly Dictionary<Type, Func<object, RelationalExpression>> _relationExtractors;
 
-        public CodeGenerationService(DataStructure dataStructure, TypeService typeService)
+        public CodeGenerationService(DataStructure dataStructure, TypeService typeService, OperationService operationService, AtomicService atomicService)
         {
             _dataStructure = dataStructure;
             _typeService = typeService;
+            _operationService = operationService;
+            _atomicService = atomicService;
             _relationExtractors = new Dictionary<Type, Func<object, RelationalExpression>>
             {
                 { typeof(CLanguageParser.EqualityExpressionContext), x => GetRelationalExpression((CLanguageParser.EqualityExpressionContext) x)},
@@ -91,12 +95,8 @@ namespace Prometheus.Services.Service {
             return result;
         }*/
 
-        public KeyValuePair<int, string> GetSnapshotDeclarations(CLanguageParser.SelectionStatementContext context)
+        public string GetSnapshotDeclarations(List<RelationalExpression> relationalExpressions)
         {
-            int index = context.Start.StartIndex;
-            List<RelationalExpression> relationalExpressions = GetRelations(context)
-                .Concat(ExtractAssignments(context))
-                .ToList();
             var builder = new StringBuilder();
 
             foreach (var relationalExpression in relationalExpressions)
@@ -113,7 +113,28 @@ namespace Prometheus.Services.Service {
                 }
             }
 
-            return new KeyValuePair<int, string>(index, builder.ToString());
+            return builder.ToString();
+        }
+
+        public string GetSnapshotDeclarations(List<RelationalExpression> relationalExpressions)
+        {
+            var builder = new StringBuilder();
+
+            foreach (var relationalExpression in relationalExpressions)
+            {
+                string declaration;
+                if (GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration))
+                {
+                    builder.AppendLine(declaration);
+                }
+
+                if (GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration))
+                {
+                    builder.AppendLine(declaration);
+                }
+            }
+
+            return builder.ToString();
         }
 
         public List<Tuple<int, int, string>> GetReplacementDeclarations(CLanguageParser.SelectionStatementContext context)
@@ -139,6 +160,23 @@ namespace Prometheus.Services.Service {
             }
 
             return result;
+        }
+
+        public List<RelationalExpression> GetConditionRelations(CLanguageParser.SelectionStatementContext context) {
+            List<RelationalExpression> relationalExpressions = context
+                .expression()
+                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
+                .Select(x => (object)x.Parent)
+                .Select(GetRelationalExpression)
+                .ToList();
+
+            return relationalExpressions;
+        }
+
+        public List<RelationalExpression> GetInnerRelations(CLanguageParser.SelectionStatementContext context) {
+            List<RelationalExpression> relationalExpressions = ExtractAssignments(context);
+
+            return relationalExpressions;
         }
 
         private bool GetSnapshotDeclaration(string expression, string operation, out string declaration)
@@ -209,17 +247,6 @@ namespace Prometheus.Services.Service {
             string result = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
 
             return result;
-        }
-
-        private List<RelationalExpression> GetRelations(CLanguageParser.SelectionStatementContext context) {
-            List<RelationalExpression> relationalExpressions = context
-                .expression()
-                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
-                .Select(x => (object)x.Parent)
-                .Select(GetRelationalExpression)
-                .ToList();
-
-            return relationalExpressions;
         }
 
         private RelationalExpression GetRelationalExpression(object context)
@@ -310,14 +337,6 @@ namespace Prometheus.Services.Service {
                 .ToList();
 
             return expressions;
-        }
-
-        private class RelationalExpression {
-            public string LeftOperand { get; set; }
-            public string RightOperand { get; set; }
-            public KeyValuePair<int, int> LeftOperandInterval { get; set; }
-            public KeyValuePair<int, int> RightOperandInterval { get; set; }
-            public string Operation { get; set; }
         }
     }
 }

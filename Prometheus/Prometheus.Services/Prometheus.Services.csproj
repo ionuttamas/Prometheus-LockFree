@@ -68,9 +68,11 @@
     <Compile Include="Parser\CLanguageParser.cs" />
     <Compile Include="Parser\CLanguageVisitor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Service\AugmentationService.cs" />
+    <Compile Include="Service\AtomicService.cs" />
+    <Compile Include="Service\OperationService.cs" />
     <Compile Include="Service\CodeGenerationService.cs" />
     <Compile Include="Service\Operation.cs" />
+    <Compile Include="Service\RelationalExpression.cs" />
     <Compile Include="Service\TypeService.cs" />
   </ItemGroup>
   <ItemGroup>

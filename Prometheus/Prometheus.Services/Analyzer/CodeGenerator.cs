@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Antlr4.Runtime.Tree;
 using Prometheus.Common;
+using Prometheus.Services.Extensions;
 using Prometheus.Services.Model;
 using Prometheus.Services.Parser;
 using Prometheus.Services.Service;
@@ -34,7 +35,9 @@ namespace Prometheus.Services {
         }
 
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
-            KeyValuePair<int, string> update = _generationService.GetSnapshotDeclarations(context);
+            List<RelationalExpression> relationalExpressions = _generationService.GetConditionRelations(context);
+            relationalExpressions.AddRange(_generationService.GetInnerRelations(context));
+            var update = new KeyValuePair<int, string>(context.GetStartIndex(),_generationService.GetSnapshotDeclarations(relationalExpressions));
             List<Tuple<int, int, string>> replacements = _generationService.GetReplacementDeclarations(context);
 
             if (!string.IsNullOrEmpty(update.Value)) {

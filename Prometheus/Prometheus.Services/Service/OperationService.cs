@@ -5,11 +5,11 @@ using Prometheus.Services.Model;
 
 namespace Prometheus.Services.Service
 {
-    public class AugmentationService
+    public class OperationService
     {
         private readonly TypeService _typeService;
 
-        public AugmentationService(TypeService typeService)
+        public OperationService(TypeService typeService)
         {
             _typeService = typeService;
         }
@@ -31,5 +31,4 @@ namespace Prometheus.Services.Service
             return operation;
         }
     }
-
 }
