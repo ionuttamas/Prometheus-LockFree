@@ -95,25 +95,34 @@ namespace Prometheus.Services.Service {
             return result;
         }*/
 
-        public string GetSnapshotDeclarations(List<RelationalExpression> relationalExpressions)
+        /// <summary>
+        /// Based on the assignment relations we generate an "if" statement for checking if any of the variable is marked.
+        /// </summary>
+        public string GetCheckForUnmarkedVariables(List<RelationalExpression> relationalExpressions)
         {
-            var builder = new StringBuilder();
+            var oldVariables = new List<string>();
 
             foreach (var relationalExpression in relationalExpressions)
             {
-                string declaration;
-                if (GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration))
+                string declaration = GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation);
+
+                if (declaration != null)
                 {
-                    builder.AppendLine(declaration);
+                    declaration = declaration.Split('=')[0].Trim(' ').Split(' ').Last();
+                    oldVariables.Add(declaration);
                 }
 
-                if (GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration))
+                declaration = GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation);
+
+                if (declaration != null)
                 {
-                    builder.AppendLine(declaration);
+                    declaration = declaration.Split('=')[0].Trim(' ').Split(' ').Last();
+                    oldVariables.Add(declaration);
                 }
+
             }
 
-            return builder.ToString();
+            return _atomicService.GetCheckFlagCondition(oldVariables.Distinct(x=>x).ToList());
         }
 
         public string GetSnapshotDeclarations(List<RelationalExpression> relationalExpressions)
@@ -122,13 +131,14 @@ namespace Prometheus.Services.Service {
 
             foreach (var relationalExpression in relationalExpressions)
             {
-                string declaration;
-                if (GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration))
+                string declaration = GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation);
+                if (declaration != null)
                 {
                     builder.AppendLine(declaration);
                 }
 
-                if (GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration))
+                declaration = GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation);
+                if (declaration != null)
                 {
                     builder.AppendLine(declaration);
                 }
@@ -137,9 +147,9 @@ namespace Prometheus.Services.Service {
             return builder.ToString();
         }
 
-        public List<Tuple<int, int, string>> GetReplacementDeclarations(CLanguageParser.SelectionStatementContext context)
+        public List<ReplacementDeclaration> GetReplacementDeclarations(CLanguageParser.SelectionStatementContext context)
         {
-            var result = new List<Tuple<int, int, string>>();
+            var result = new List<ReplacementDeclaration>();
             List<RelationalExpression> relationalExpressions = context
                 .expression()
                 .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
@@ -151,11 +161,11 @@ namespace Prometheus.Services.Service {
                 string declaration;
                 int offset;
                 if (GetReplacementDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration, out offset)) {
-                    result.Add(Tuple.Create(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value - offset, declaration));
+                    result.Add(new ReplacementDeclaration(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value - offset, declaration));
                 }
 
                 if (GetReplacementDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration, out offset)) {
-                    result.Add(Tuple.Create(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value - offset, declaration));
+                    result.Add(new ReplacementDeclaration(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value - offset, declaration));
                 }
             }
 
@@ -179,11 +189,12 @@ namespace Prometheus.Services.Service {
             return relationalExpressions;
         }
 
-        private bool GetSnapshotDeclaration(string expression, string operation, out string declaration)
+        private string GetSnapshotDeclaration(string expression, string operation)
         {
             string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
                 expression.Split(POINTER_ACCESS_MARKER).First() :
                 expression;
+            string declaration = null;
 
             if (_dataStructure.GlobalState.Contains(variable) || (_dataStructure[operation][variable]!=null && _dataStructure[operation][variable].LinksToGlobalState))
             {
@@ -197,12 +208,9 @@ namespace Prometheus.Services.Service {
                     type = _typeService.GetType(expression, operation);
                     declaration = $"{type} {GetSnapshotName(expression)} = {expression};";
                 }
-
-                return true;
             }
 
-            declaration = null;
-            return false;
+            return declaration;
         }
 
         private bool GetReplacementDeclaration(string expression, string operation, out string declaration, out int offset)
@@ -337,6 +345,20 @@ namespace Prometheus.Services.Service {
                 .ToList();
 
             return expressions;
+        }
+    }
+
+    public class ReplacementDeclaration
+    {
+        public int From { get; set; }
+        public int To { get; set; }
+        public string Value { get; set; }
+
+        public ReplacementDeclaration(int from, int to, string value)
+        {
+            From = from;
+            To = to;
+            Value = value;
         }
     }
 }

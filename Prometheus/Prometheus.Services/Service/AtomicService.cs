@@ -13,9 +13,16 @@ namespace Prometheus.Services.Service
             return $"#define {UNMARKED_POINTER} 0";
         }
 
-        public string GetFlagRetrieval(Structure structure)
+        public string GetFlagRetrievalStatement(Structure structure)
         {
             return $"static inline uint64_t GETFLAG({structure.Name}* ptr) {{ " +
+                   "return ((uint64_t)ptr) & 8; " +
+                   "}";
+        }
+
+        public string GetFlagStatement(Structure structure)
+        {
+            return $"static inline uint64_t FLAG({structure.Name}* ptr, uint64_t flag) {{ " +
                    "return ((uint64_t)ptr) & 8; " +
                    "}";
         }
@@ -24,7 +31,7 @@ namespace Prometheus.Services.Service
         {
             var variableCondition = $"GETFLAG({{0}})!={UNMARKED_POINTER}";
             var condition = string.Join("||", variables.Select(x => string.Format(variableCondition, (object) x)));
-            var checkExpression = $"if({condition}) HELP HERE";
+            var checkExpression = $"if({condition}) {{ HELP HERE }}";
 
             return checkExpression;
         }

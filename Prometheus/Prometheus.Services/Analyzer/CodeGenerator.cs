@@ -37,15 +37,17 @@ namespace Prometheus.Services {
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
             List<RelationalExpression> relationalExpressions = _generationService.GetConditionRelations(context);
             relationalExpressions.AddRange(_generationService.GetInnerRelations(context));
-            var update = new KeyValuePair<int, string>(context.GetStartIndex(),_generationService.GetSnapshotDeclarations(relationalExpressions));
-            List<Tuple<int, int, string>> replacements = _generationService.GetReplacementDeclarations(context);
+            string snapshotDeclarations = _generationService.GetSnapshotDeclarations(relationalExpressions);
+            string unmarkedVariablesCheckDeclaration = _generationService.GetCheckForUnmarkedVariables(relationalExpressions);
+            var update = new KeyValuePair<int, string>(context.GetStartIndex(), $"{snapshotDeclarations}{Environment.NewLine}{unmarkedVariablesCheckDeclaration}");
+            List<ReplacementDeclaration> replacements = _generationService.GetReplacementDeclarations(context);
 
             if (!string.IsNullOrEmpty(update.Value)) {
                 _updateTable.AddInsertion(update.Key, update.Value);
             }
 
             foreach (var replacement in replacements) {
-                _updateTable.AddReplacement(replacement.Item1, replacement.Item2, replacement.Item3);
+                _updateTable.AddReplacement(replacement.From, replacement.To, replacement.Value);
             }
 
             return base.VisitSelectionStatement(context);
