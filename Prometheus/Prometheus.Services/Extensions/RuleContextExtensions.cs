@@ -38,7 +38,7 @@ namespace Prometheus.Services.Extensions {
 
         public static CLanguageParser.FunctionDefinitionContext GetFunction(this RuleContext context)
         {
-            var result = (CLanguageParser.FunctionDefinitionContext)context.GetAncestor(x => x is CLanguageParser.FunctionDefinitionContext);
+            var result = context.GetAncestor<CLanguageParser.FunctionDefinitionContext>();
 
             return result;
         }
@@ -195,16 +195,16 @@ namespace Prometheus.Services.Extensions {
             return result;
         }
 
-        public static RuleContext GetAncestor(this RuleContext context, Func<RuleContext, bool> filter)
+        public static T GetAncestor<T>(this RuleContext context) where T:RuleContext
         {
             RuleContext ancestorMatch = context.Parent;
 
-            while (ancestorMatch != null && !filter(ancestorMatch))
+            while (ancestorMatch != null && !(ancestorMatch is T))
             {
                 ancestorMatch = ancestorMatch.Parent;
             }
 
-            return ancestorMatch;
+            return (T)ancestorMatch;
         }
     }
 }

@@ -30,5 +30,17 @@ namespace Prometheus.Services.Service
 
             return operation;
         }
+
+        public string GetHelpMethod(Structure structure) {
+            var argument = $"{structure.Name}Instance";
+            var expectedArgument = $"expected{structure.Name.Capitalize()}";
+            //We just assign the expected argument to the current argument;
+            //The method that manages to set the "operation" field on the argument via CAS instruction is the "owner" of the argument modification
+            var functionDeclaration = $"void Help({structure.Name} * {argument}){{" +
+                                            $"{argument} = {argument}.{expectedArgument};" +
+                                      $"}}";
+
+            return functionDeclaration;
+        }
     }
 }

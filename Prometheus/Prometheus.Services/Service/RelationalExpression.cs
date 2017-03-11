@@ -7,6 +7,6 @@ namespace Prometheus.Services.Service
         public string RightOperand { get; set; }
         public KeyValuePair<int, int> LeftOperandInterval { get; set; }
         public KeyValuePair<int, int> RightOperandInterval { get; set; }
-        public string Operation { get; set; }
+        public string Method { get; set; }
     }
 }

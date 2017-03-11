@@ -8,24 +8,28 @@ namespace Prometheus.Services.Model
 {
     public class DataStructure
     {
-        public List<Structure> Structures { get; set; }
-        public State GlobalState { get; set; }
-        public List<Method> Operations { get; set; }
-        public Dictionary<string, int> OperationCodes { get; }
-        public Dictionary<string, Dictionary<int, Dictionary<int, int>>> OperationInternalCodes { get; }
+        private readonly Dictionary<string, List<MethodRegion>> _methodInternalCodes;
 
         public DataStructure()
         {
             GlobalState = new State();
             Operations = new List<Method>();
             Structures = new List<Structure>();
-            OperationCodes = new Dictionary<string, int>();
-            OperationInternalCodes = new Dictionary<string, Dictionary<int, Dictionary<int, int>>>();
+            _methodInternalCodes = new Dictionary<string, List<MethodRegion>>();
         }
+
+        public List<Structure> Structures { get; set; }
+        public State GlobalState { get; set; }
+        public List<Method> Operations { get; set; }
 
         public Method this[string name]
         {
             get { return Operations.FirstOrDefault(x => x.Name == name); }
+        }
+
+        public int GetRegionCode(string method, int index)
+        {
+            return _methodInternalCodes[method].First(x => x.Start <= index && index < x.End).Code;
         }
 
         public void AddStructure(Structure structure)
@@ -52,7 +56,7 @@ namespace Prometheus.Services.Model
         public void PostProcess()
         {
             ProcessDependencies();
-            BuildCodesTable();
+            ExtractRegions();
         }
 
         private void ProcessDependencies()
@@ -61,15 +65,6 @@ namespace Prometheus.Services.Model
             {
                 ProcessOperation(operation);
             }
-        }
-
-        private void BuildCodesTable() {
-            for (int i = 0; i < Operations.Count; i++)
-            {
-                OperationCodes[Operations[i].Name] = i;
-            }
-
-            ExtractRegions();
         }
 
         private void ProcessOperation(Method method)
@@ -103,11 +98,9 @@ namespace Prometheus.Services.Model
 
             foreach (var operation in Operations)
             {
-                Dictionary<int, int> operationRegions = ExtractOperationRegions(operation);
-
-                OperationInternalCodes[operation.Name] = operationRegions
-                    .ToDictionary(x => x.Key,
-                                  x => new Dictionary<int, int> {{x.Value, codeCounter++}});
+                _methodInternalCodes[operation.Name] = ExtractOperationRegions(operation)
+                    .Select(x=>new MethodRegion(x.Key,x.Value, codeCounter++))
+                    .ToList();
             }
         }
 
@@ -272,6 +265,7 @@ namespace Prometheus.Services.Model
 
             foreach (var dependentVariableName in variable.DependentVariables)
             {
+                //todo: dependentVariables can contain tokens like "head->next" and these need to be treated separately
                 Variable dependentVariable = this[variable.Operation][dependentVariableName];
 
                 if(dependentVariable==null)
@@ -286,6 +280,20 @@ namespace Prometheus.Services.Model
             public int StartStatementIndex { get; set; }
             public int StartBodyIndex { get; set; }
             public int EndBodyIndex { get; set; }
+        }
+
+        private class MethodRegion
+        {
+            public int Start { get; }
+            public int End { get; }
+            public int Code { get; }
+
+            public MethodRegion(int start, int end, int code)
+            {
+                Start = start;
+                End = end;
+                Code = code;
+            }
         }
     }
 }

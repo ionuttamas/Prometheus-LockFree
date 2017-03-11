@@ -99,7 +99,7 @@ namespace Prometheus.Services
         }
 
         public override object VisitDirectDeclarator(CLanguageParser.DirectDeclaratorContext context) {
-            if (context.GetAncestor(x => x is CLanguageParser.StructDeclarationListContext) != null ||
+            if (context.GetAncestor<CLanguageParser.StructDeclarationListContext>() != null ||
                 context.Parent.Parent is CLanguageParser.FunctionDefinitionContext)
             {
                 return base.VisitDirectDeclarator(context);
@@ -119,7 +119,7 @@ namespace Prometheus.Services
                 DataStructure.AddGlobalVariable(variable);
             }
             else if (!(context.Parent.Parent.Parent is CLanguageParser.FunctionDefinitionContext) &&
-                     context.GetAncestor(x => x is CLanguageParser.ParameterListContext) == null)
+                     context.GetAncestor<CLanguageParser.ParameterListContext>() == null)
             {
                 var functionName = function.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>(x => x is CLanguageParser.DirectDeclaratorContext).GetName();
                 List<string> dependentTokens;
@@ -146,7 +146,7 @@ namespace Prometheus.Services
         }
 
         public override object VisitTypedefName(CLanguageParser.TypedefNameContext context) {
-            if (context.GetAncestor(x => x is CLanguageParser.StructDeclarationListContext) != null) {
+            if (context.GetAncestor<CLanguageParser.StructDeclarationListContext>() != null) {
                 return base.VisitTypedefName(context);
             }
 
@@ -188,10 +188,9 @@ namespace Prometheus.Services
             var declarations = context
                 .GetLeafDescendants(x => x is CLanguageParser.StructDeclarationContext)
                 .Select(x=>(CLanguageParser.StructDeclarationContext)x);
-            var specifierContext = (ParserRuleContext)context.GetAncestor(x => x is CLanguageParser.StructOrUnionSpecifierContext);
+            var specifierContext = context.GetAncestor<CLanguageParser.StructOrUnionSpecifierContext>();
             var structure = new Structure(specifierContext.GetChild(1).GetText()) {
-                StartIndex = specifierContext.Start.StartIndex,
-                EndIndex = specifierContext.Stop.StopIndex
+                Context = specifierContext
             };
 
             foreach (var declaration in declarations)
@@ -218,7 +217,7 @@ namespace Prometheus.Services
 
         private static string GetType(ParserRuleContext context)
         {
-            var declarationContext = (ParserRuleContext)context.GetAncestor(x => x is CLanguageParser.DeclarationContext);
+            var declarationContext = context.GetAncestor<CLanguageParser.DeclarationContext>();
 
             if (declarationContext == null)
             {

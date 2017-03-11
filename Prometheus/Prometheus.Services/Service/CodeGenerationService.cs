@@ -14,6 +14,7 @@ namespace Prometheus.Services.Service {
     //todo: needs to be broken down into individual services and renamed
     public class CodeGenerationService
     {
+        private const string NULL_TOKEN = "NULL";
         private const string POINTER_ACCESS_MARKER = "->";
         private const string SNAPSHOT_NAME_MARKER = "old";
         private readonly DataStructure _dataStructure;
@@ -83,18 +84,6 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
-        /*public KeyValuePair<int, string> GetCASDeclaration(CLanguageParser.AssignmentExpressionContext context)
-        {
-            RelationalExpression relationalExpression = GetRelationalExpression(context);
-            int offset = 0;
-            //todo: currently we consider just pointer based variables: e.g. "head->next"; need to fix for value types e.g. "head->next->data"
-            string snapshotVariable = GetSnapshotOldName(relationalExpression.RightOperand, relationalExpression.Operation, ref offset);
-
-
-
-            return result;
-        }*/
-
         /// <summary>
         /// Based on the assignment relations we generate an "if" statement for checking if any of the variable is marked.
         /// </summary>
@@ -104,25 +93,49 @@ namespace Prometheus.Services.Service {
 
             foreach (var relationalExpression in relationalExpressions)
             {
-                string declaration = GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation);
+                var snapshot = GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Method);
 
-                if (declaration != null)
+                if (snapshot != null)
                 {
-                    declaration = declaration.Split('=')[0].Trim(' ').Split(' ').Last();
-                    oldVariables.Add(declaration);
+                    oldVariables.Add(snapshot.Snapshot);
                 }
 
-                declaration = GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation);
+                snapshot = GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Method);
 
-                if (declaration != null)
+                if (snapshot != null)
                 {
-                    declaration = declaration.Split('=')[0].Trim(' ').Split(' ').Last();
-                    oldVariables.Add(declaration);
+                    oldVariables.Add(snapshot.Snapshot);
                 }
-
             }
 
             return _atomicService.GetCheckFlagCondition(oldVariables.Distinct(x=>x).ToList());
+        }
+
+        public ReplacementDeclaration GetReplacementForAssignmentRelation(RelationalExpression relationalExpression)
+        {
+            var builder = new StringBuilder();
+            var method = relationalExpression.Method;
+            var snapshot = GetSnapshotDeclaration(relationalExpression.RightOperand, method);
+            var startIndex = relationalExpression.LeftOperandInterval.Key;
+            var endIndex = relationalExpression.RightOperandInterval.Value;
+
+            if (snapshot != null && relationalExpression.RightOperand != NULL_TOKEN)
+            {
+                builder.AppendLine(_atomicService.GetCheckAndMarkCondition(snapshot,
+                    _dataStructure.GetRegionCode(method, startIndex)));
+
+                snapshot = GetSnapshotDeclaration(relationalExpression.LeftOperand, method);
+                builder.AppendLine(_atomicService.GetCheckAndMarkCondition(snapshot,
+                    _dataStructure.GetRegionCode(method, startIndex)));
+            }
+            else
+            {
+                snapshot = GetSnapshotDeclaration(relationalExpression.LeftOperand, method);
+                builder.AppendLine(_atomicService.GetCheckAndMarkCondition(snapshot,
+                    _dataStructure.GetRegionCode(method, startIndex)));
+            }
+
+            return new ReplacementDeclaration(startIndex, endIndex + 1, builder.ToString());
         }
 
         public string GetSnapshotDeclarations(List<RelationalExpression> relationalExpressions)
@@ -131,20 +144,34 @@ namespace Prometheus.Services.Service {
 
             foreach (var relationalExpression in relationalExpressions)
             {
-                string declaration = GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation);
-                if (declaration != null)
+                var snapshot = GetSnapshotDeclaration(relationalExpression.LeftOperand, relationalExpression.Method);
+                if (snapshot != null)
                 {
-                    builder.AppendLine(declaration);
+                    builder.AppendLine(snapshot.ToString());
                 }
 
-                declaration = GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Operation);
-                if (declaration != null)
+                snapshot = GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Method);
+                if (snapshot != null)
                 {
-                    builder.AppendLine(declaration);
+                    builder.AppendLine(snapshot.ToString());
                 }
             }
 
             return builder.ToString();
+        }
+
+        public string GetHelperOperations()
+        {
+            var result = string.Join(Environment.NewLine, _dataStructure.Structures.Select(x => _operationService.GetOperation(x).ToString()));
+
+            return result;
+        }
+
+        public List<ReplacementDeclaration> GetStructuresAugmentation()
+        {
+            //_dataStructure.Structures.Select(x => x.Context.);
+
+            return null;
         }
 
         public List<ReplacementDeclaration> GetReplacementDeclarations(CLanguageParser.SelectionStatementContext context)
@@ -160,11 +187,11 @@ namespace Prometheus.Services.Service {
             foreach (var relationalExpression in relationalExpressions) {
                 string declaration;
                 int offset;
-                if (GetReplacementDeclaration(relationalExpression.LeftOperand, relationalExpression.Operation, out declaration, out offset)) {
+                if (GetReplacementDeclaration(relationalExpression.LeftOperand, relationalExpression.Method, out declaration, out offset)) {
                     result.Add(new ReplacementDeclaration(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value - offset, declaration));
                 }
 
-                if (GetReplacementDeclaration(relationalExpression.RightOperand, relationalExpression.Operation, out declaration, out offset)) {
+                if (GetReplacementDeclaration(relationalExpression.RightOperand, relationalExpression.Method, out declaration, out offset)) {
                     result.Add(new ReplacementDeclaration(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value - offset, declaration));
                 }
             }
@@ -189,28 +216,30 @@ namespace Prometheus.Services.Service {
             return relationalExpressions;
         }
 
-        private string GetSnapshotDeclaration(string expression, string operation)
+        private VariableSnapshot GetSnapshotDeclaration(string expression, string operation)
         {
+            var result = new VariableSnapshot();
             string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
                 expression.Split(POINTER_ACCESS_MARKER).First() :
                 expression;
-            string declaration = null;
 
             if (_dataStructure.GlobalState.Contains(variable) || (_dataStructure[operation][variable]!=null && _dataStructure[operation][variable].LinksToGlobalState))
             {
                 string type = _typeService.GetType(expression, operation);
 
-                if (_typeService.IsPointer(type)) {
-                    declaration = $"{type} {GetSnapshotName(expression)} = {expression};";
-                } else {
+                if (!_typeService.IsPointer(type)) {
                     int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
                     expression = expression.Substring(0, pointerIndex);
                     type = _typeService.GetType(expression, operation);
-                    declaration = $"{type} {GetSnapshotName(expression)} = {expression};";
                 }
+
+                result.Type = type;
+                result.Snapshot = GetSnapshotName(expression);
+                result.Variable = expression;
+                return result;
             }
 
-            return declaration;
+            return null;
         }
 
         private bool GetReplacementDeclaration(string expression, string operation, out string declaration, out int offset)
@@ -279,7 +308,7 @@ namespace Prometheus.Services.Service {
                 RightOperand = rightExpression.GetText(),
                 LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
                 RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
-                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
+                Method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
             return result;
@@ -294,7 +323,7 @@ namespace Prometheus.Services.Service {
                 RightOperand = rightExpression.GetText(),
                 LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
                 RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
-                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
+                Method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
             return result;
@@ -310,7 +339,7 @@ namespace Prometheus.Services.Service {
                 RightOperand = rightExpression.GetText(),
                 LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
                 RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
-                Operation = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
+                Method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
             return result;
@@ -345,6 +374,18 @@ namespace Prometheus.Services.Service {
                 .ToList();
 
             return expressions;
+        }
+    }
+
+    public class VariableSnapshot
+    {
+        public string Type { get; set; }
+        public string Snapshot { get; set; }
+        public string Variable { get; set; }
+
+        public override string ToString()
+        {
+            return $"{Type} {Snapshot} = {Variable}";
         }
     }
 

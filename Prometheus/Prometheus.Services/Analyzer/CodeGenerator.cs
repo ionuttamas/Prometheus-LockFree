@@ -22,6 +22,12 @@ namespace Prometheus.Services {
             _updateTable = new CodeUpdateTable(dataStructure);
         }
 
+        public override object VisitCompilationUnit(CLanguageParser.CompilationUnitContext context)
+        {
+
+            return base.VisitCompilationUnit(context);
+        }
+
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context)
         {
             Dictionary<int, string> whileDeclarations = _generationService.GetWhileLoopDeclarations(context);
@@ -35,12 +41,15 @@ namespace Prometheus.Services {
         }
 
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
-            List<RelationalExpression> relationalExpressions = _generationService.GetConditionRelations(context);
-            relationalExpressions.AddRange(_generationService.GetInnerRelations(context));
-            string snapshotDeclarations = _generationService.GetSnapshotDeclarations(relationalExpressions);
-            string unmarkedVariablesCheckDeclaration = _generationService.GetCheckForUnmarkedVariables(relationalExpressions);
+            List<RelationalExpression> conditionRelations = _generationService.GetConditionRelations(context);
+            //todo: in the case of if(cond) {assign1; assign2; if(..){..} assign3;} we need to take only assign1 and assign2
+            List<RelationalExpression> innerRelations = _generationService.GetInnerRelations(context);
+            conditionRelations.AddRange(innerRelations);
+            string snapshotDeclarations = _generationService.GetSnapshotDeclarations(conditionRelations);
+            string unmarkedVariablesCheckDeclaration = _generationService.GetCheckForUnmarkedVariables(conditionRelations);
             var update = new KeyValuePair<int, string>(context.GetStartIndex(), $"{snapshotDeclarations}{Environment.NewLine}{unmarkedVariablesCheckDeclaration}");
             List<ReplacementDeclaration> replacements = _generationService.GetReplacementDeclarations(context);
+            replacements.AddRange(innerRelations.Select(x=>_generationService.GetReplacementForAssignmentRelation(x)));
 
             if (!string.IsNullOrEmpty(update.Value)) {
                 _updateTable.AddInsertion(update.Key, update.Value);
@@ -113,7 +122,7 @@ namespace Prometheus.Services {
         }
 
         private class CodeUpdateTable {
-            private const string EQUAL_MARKER = "=";
+            private const string ASSIGNMENT_MARKER = "=";
             private const string SEPARATOR_MARKER = " ";
             private readonly DataStructure _dataStructure;
             private Dictionary<int, string> _insertions;
@@ -202,15 +211,15 @@ namespace Prometheus.Services {
 
             private static bool IsAssignment(string value)
             {
-                return value.Contains(EQUAL_MARKER);
+                return value.Contains(ASSIGNMENT_MARKER);
             }
 
             private static KeyValuePair<string, string> GetVariableAssignment(string declaration) {
                 string[] tokens = declaration
-                    .Substring(0, declaration.InvariantIndexOf(EQUAL_MARKER))
+                    .Substring(0, declaration.InvariantIndexOf(ASSIGNMENT_MARKER))
                     .Trim()
                     .Split(SEPARATOR_MARKER);
-                var assignmentExpression = declaration.Substring(declaration.InvariantIndexOf(EQUAL_MARKER));
+                var assignmentExpression = declaration.Substring(declaration.InvariantIndexOf(ASSIGNMENT_MARKER));
 
                 return new KeyValuePair<string, string>(tokens.Last(), $"{tokens.Last()} {assignmentExpression}");
             }

@@ -1,12 +1,15 @@
 using System.Collections.Generic;
 using System.Linq;
+using Prometheus.Services.Extensions;
+using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Model
 {
     public class Structure
     {
-        public int StartIndex { get; set; }
-        public int EndIndex { get; set; }
+        public int StartIndex => Context.GetStartIndex();
+        public int EndIndex => Context.GetStopIndex();
+        public CLanguageParser.StructOrUnionSpecifierContext Context { get; set; }
         public string Name { get; }
         public List<Field> Fields { get; set; }
 
