@@ -12,18 +12,31 @@ using Prometheus.Services.Service;
 
 namespace Prometheus.Services {
     public class CodeGenerator : CodeVisitor {
+        private readonly DataStructure _dataStructure;
         private readonly CodeGenerationService _generationService;
         private readonly CodeUpdateTable _updateTable;
+        //todo: refactor
+        private readonly List<KeyValuePair<int, string>> nonAssignmentInsertions;
 
         public string CodeOutput { get; private set; }
 
         public CodeGenerator(DataStructure dataStructure, CodeGenerationService generationService) {
+            _dataStructure = dataStructure;
             _generationService = generationService;
             _updateTable = new CodeUpdateTable(dataStructure);
+            nonAssignmentInsertions = new List<KeyValuePair<int, string>>();
         }
 
         public override object VisitCompilationUnit(CLanguageParser.CompilationUnitContext context)
         {
+            var index = _dataStructure.Structures.Max(x => x.EndIndex);
+
+            foreach (var structure in _dataStructure.Structures)
+            {
+                nonAssignmentInsertions.Add(new KeyValuePair<int, string>(structure.Context.structDeclarationList().GetStartIndex(), $"struct {structure.Name} * expected;"));
+            }
+            var helperMethods = string.Join(Environment.NewLine, _dataStructure.Structures.Select(x => _generationService.GetHelpMethod(x)));
+            nonAssignmentInsertions.Add(new KeyValuePair<int, string>(index+2, Environment.NewLine + Environment.NewLine + Environment.NewLine + Environment.NewLine + helperMethods));
 
             return base.VisitCompilationUnit(context);
         }
@@ -73,6 +86,7 @@ namespace Prometheus.Services {
 
             var updates = _updateTable
                 .GetInsertions()
+                .Concat(nonAssignmentInsertions)
                 .Where(x=>!string.IsNullOrEmpty(x.Value))
                 .Select(x => new {Index = x.Key, Insert = x, Replace = default(KeyValuePair<int, KeyValuePair<int, string>>)})
                 .Concat(_updateTable.GetReplacements().Select(x => new {Index = x.Key, Insert = default(KeyValuePair<int, string>), Replace = x}))

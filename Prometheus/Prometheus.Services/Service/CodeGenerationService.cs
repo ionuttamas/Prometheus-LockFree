@@ -11,7 +11,6 @@ using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Service {
 
-    //todo: needs to be broken down into individual services and renamed
     public class CodeGenerationService
     {
         private const string NULL_TOKEN = "NULL";
@@ -19,15 +18,13 @@ namespace Prometheus.Services.Service {
         private const string SNAPSHOT_NAME_MARKER = "old";
         private readonly DataStructure _dataStructure;
         private readonly TypeService _typeService;
-        private readonly OperationService _operationService;
         private readonly AtomicService _atomicService;
         private readonly Dictionary<Type, Func<object, RelationalExpression>> _relationExtractors;
 
-        public CodeGenerationService(DataStructure dataStructure, TypeService typeService, OperationService operationService, AtomicService atomicService)
+        public CodeGenerationService(DataStructure dataStructure, TypeService typeService, AtomicService atomicService)
         {
             _dataStructure = dataStructure;
             _typeService = typeService;
-            _operationService = operationService;
             _atomicService = atomicService;
             _relationExtractors = new Dictionary<Type, Func<object, RelationalExpression>>
             {
@@ -63,7 +60,7 @@ namespace Prometheus.Services.Service {
                 .Select(x => new Regex($"[^a-zA-Z\\d:]{x.Name}[^a-zA-Z\\d:]"))
                 .Select(x => x.IsMatch(body) ? x.Match(body).Index : -1)
                 .Where(x => x > 0)
-                .Select(x => x + bodyContext.Start.StartIndex);
+                .Select(x => x + bodyContext.GetStartIndex());
             insertionIndex = Math.Min(insertionIndex, globalVariableIndexes.Any() ? globalVariableIndexes.Min() : insertionIndex);
             Method method = _dataStructure[operationName];
             IfStatement ifStatement = method.IfStatements.FirstOrDefault(x => x.StartIndex < insertionIndex && insertionIndex < x.EndIndex);
@@ -116,8 +113,8 @@ namespace Prometheus.Services.Service {
             var builder = new StringBuilder();
             var method = relationalExpression.Method;
             var snapshot = GetSnapshotDeclaration(relationalExpression.RightOperand, method);
-            var startIndex = relationalExpression.LeftOperandInterval.Key;
-            var endIndex = relationalExpression.RightOperandInterval.Value;
+            var startIndex = relationalExpression.LeftOperandInterval.Start;
+            var endIndex = relationalExpression.RightOperandInterval.End;
 
             if (snapshot != null && relationalExpression.RightOperand != NULL_TOKEN)
             {
@@ -160,20 +157,6 @@ namespace Prometheus.Services.Service {
             return builder.ToString();
         }
 
-        public string GetHelperOperations()
-        {
-            var result = string.Join(Environment.NewLine, _dataStructure.Structures.Select(x => _operationService.GetOperation(x).ToString()));
-
-            return result;
-        }
-
-        public List<ReplacementDeclaration> GetStructuresAugmentation()
-        {
-            //_dataStructure.Structures.Select(x => x.Context.);
-
-            return null;
-        }
-
         public List<ReplacementDeclaration> GetReplacementDeclarations(CLanguageParser.SelectionStatementContext context)
         {
             var result = new List<ReplacementDeclaration>();
@@ -188,11 +171,11 @@ namespace Prometheus.Services.Service {
                 string declaration;
                 int offset;
                 if (GetReplacementDeclaration(relationalExpression.LeftOperand, relationalExpression.Method, out declaration, out offset)) {
-                    result.Add(new ReplacementDeclaration(relationalExpression.LeftOperandInterval.Key, relationalExpression.LeftOperandInterval.Value - offset, declaration));
+                    result.Add(new ReplacementDeclaration(relationalExpression.LeftOperandInterval.Start, relationalExpression.LeftOperandInterval.End - offset, declaration));
                 }
 
                 if (GetReplacementDeclaration(relationalExpression.RightOperand, relationalExpression.Method, out declaration, out offset)) {
-                    result.Add(new ReplacementDeclaration(relationalExpression.RightOperandInterval.Key, relationalExpression.RightOperandInterval.Value - offset, declaration));
+                    result.Add(new ReplacementDeclaration(relationalExpression.RightOperandInterval.Start, relationalExpression.RightOperandInterval.End - offset, declaration));
                 }
             }
 
@@ -214,6 +197,19 @@ namespace Prometheus.Services.Service {
             List<RelationalExpression> relationalExpressions = ExtractAssignments(context);
 
             return relationalExpressions;
+        }
+
+        public string GetHelpMethod(Structure structure) {
+            var argument = "value";
+            //We just assign the expected argument to the current argument;
+            //The method that manages to set the "operation" field on the argument via CAS instruction is the "owner" of the argument modification
+            var functionDeclaration = $"void Help({structure.Name} * {argument}){{"
+                                        + Environment.NewLine +
+                                            $"{argument} = {argument}.expected;"
+                                        + Environment.NewLine +
+                                      $"}}";
+
+            return functionDeclaration;
         }
 
         private VariableSnapshot GetSnapshotDeclaration(string expression, string operation)
@@ -306,8 +302,8 @@ namespace Prometheus.Services.Service {
             var result = new RelationalExpression {
                 LeftOperand = leftExpression.GetText(),
                 RightOperand = rightExpression.GetText(),
-                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
-                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
+                LeftOperandInterval = new Interval(leftExpression.GetStartIndex(), leftExpression.GetStopIndex()),
+                RightOperandInterval = new Interval(rightExpression.GetStartIndex(), rightExpression.GetStopIndex()),
                 Method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
@@ -321,8 +317,8 @@ namespace Prometheus.Services.Service {
             var result = new RelationalExpression {
                 LeftOperand = leftExpression.GetText(),
                 RightOperand = rightExpression.GetText(),
-                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
-                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
+                LeftOperandInterval = new Interval(leftExpression.GetStartIndex(), leftExpression.GetStopIndex()),
+                RightOperandInterval = new Interval(rightExpression.GetStartIndex(), rightExpression.GetStopIndex()),
                 Method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 
@@ -337,8 +333,8 @@ namespace Prometheus.Services.Service {
             var result = new RelationalExpression {
                 LeftOperand = leftExpression.GetText(),
                 RightOperand = rightExpression.GetText(),
-                LeftOperandInterval = new KeyValuePair<int, int>(leftExpression.Start.StartIndex, leftExpression.Stop.StopIndex),
-                RightOperandInterval = new KeyValuePair<int, int>(rightExpression.Start.StartIndex, rightExpression.Stop.StopIndex),
+                LeftOperandInterval = new Interval(leftExpression.GetStartIndex(), leftExpression.GetStopIndex()),
+                RightOperandInterval = new Interval(rightExpression.GetStartIndex(), rightExpression.GetStopIndex()),
                 Method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
         };
 

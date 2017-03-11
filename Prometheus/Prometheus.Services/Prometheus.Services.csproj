@@ -48,14 +48,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Analyzer\Analyzer.cs" />
     <Compile Include="Analyzer\CodeGenerator.cs" />
     <Compile Include="Analyzer\CodeVisitor.cs" />
     <Compile Include="Analyzer\DataStructureExtractor.cs" />
     <Compile Include="Extensions\RuleContextExtensions.cs" />
     <Compile Include="Model\Field.cs" />
     <Compile Include="Model\IfStatement.cs" />
-    <Compile Include="Model\Region.cs" />
     <Compile Include="Model\Structure.cs" />
     <Compile Include="Model\Variable.cs" />
     <Compile Include="Model\Method.cs" />
@@ -69,9 +67,8 @@
     <Compile Include="Parser\CLanguageVisitor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Service\AtomicService.cs" />
-    <Compile Include="Service\OperationService.cs" />
     <Compile Include="Service\CodeGenerationService.cs" />
-    <Compile Include="Service\Operation.cs" />
+    <Compile Include="Service\Interval.cs" />
     <Compile Include="Service\RelationalExpression.cs" />
     <Compile Include="Service\TypeService.cs" />
   </ItemGroup>
