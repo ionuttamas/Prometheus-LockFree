@@ -12,7 +12,7 @@ namespace Prometheus.Services.UnitTests
         {
             var codeVisitor = new DataStructureExtractor();
             codeVisitor.Visit(codeInput);
-            Assert.True(globalVariables.All(x => codeVisitor.DataStructure.GlobalState.Contains(x)));
+            Assert.True(globalVariables.All(x => codeVisitor.DataStructure.HasGlobalVariable(x)));
             Assert.True(structures.All(x => codeVisitor.DataStructure.Structures.Contains(x)));
 
             foreach (var operation in methods)

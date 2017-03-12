@@ -6,7 +6,7 @@ namespace Prometheus.Common {
     public static class StringExtensions {
         private static readonly Regex DuplicateSpacesRegex = new Regex(@"[ ]{2,}", RegexOptions.None);
 
-        public static string InsertAtIndex(this string text, string value, int index)
+        public static string InsertAt(this string text, int index, string value)
         {
             string result = $"{text.Substring(0, index)}{value}{text.Substring(index)}";
 

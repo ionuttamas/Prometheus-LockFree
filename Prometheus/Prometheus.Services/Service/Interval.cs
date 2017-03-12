@@ -10,5 +10,10 @@
             Start = start;
             End = end;
         }
+
+        public bool Contains(int value)
+        {
+            return Start <= value && value <= End;
+        }
     }
 }

@@ -8,6 +8,7 @@ using Prometheus.Common;
 using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Extensions {
+    //todo: clean this up and leave only what's necessary
     public static class RuleContextExtensions {
         public static string GetName(this ParserRuleContext context)
         {
@@ -34,6 +35,11 @@ namespace Prometheus.Services.Extensions {
             string text = context.Start.InputStream.GetText(Interval.Of(start, end));
 
             return text;
+        }
+
+        public static bool ContainsIndex(this ParserRuleContext context, int index)
+        {
+            return context.GetStartIndex() <= index && index <= context.GetStopIndex();
         }
 
         public static CLanguageParser.FunctionDefinitionContext GetFunction(this RuleContext context)

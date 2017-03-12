@@ -11,7 +11,7 @@ using Prometheus.Services.Parser;
 
 namespace Prometheus.Services.Service {
 
-    public class CodeGenerationService
+    public class RelationService
     {
         private const string NULL_TOKEN = "NULL";
         private const string POINTER_ACCESS_MARKER = "->";
@@ -21,7 +21,7 @@ namespace Prometheus.Services.Service {
         private readonly AtomicService _atomicService;
         private readonly Dictionary<Type, Func<object, RelationalExpression>> _relationExtractors;
 
-        public CodeGenerationService(DataStructure dataStructure, TypeService typeService, AtomicService atomicService)
+        public RelationService(DataStructure dataStructure, TypeService typeService, AtomicService atomicService)
         {
             _dataStructure = dataStructure;
             _typeService = typeService;
@@ -31,54 +31,6 @@ namespace Prometheus.Services.Service {
                 { typeof(CLanguageParser.EqualityExpressionContext), x => GetRelationalExpression((CLanguageParser.EqualityExpressionContext) x)},
                 { typeof(CLanguageParser.AndExpressionContext), x => GetRelationalExpression((CLanguageParser.AndExpressionContext) x)}
             };
-        }
-
-        public Dictionary<int, string> GetWhileLoopDeclarations(CLanguageParser.FunctionDefinitionContext context)
-        {
-            int insertionIndex = int.MaxValue;
-            string operationName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
-
-            var localVariables = _dataStructure[operationName]
-                .LocalVariables
-                .OrderBy(x => x.Index)
-                .ToList();
-            var variable = localVariables
-                .Skip(1)
-                .Select((var, ix) => new {Variable = var, Index = ix})
-                .FirstOrDefault(x => x.Variable.LinksToGlobalState);
-
-            if (variable != null)
-            {
-                insertionIndex = localVariables[variable.Index].Index;
-            }
-
-            var bodyContext = context.compoundStatement();
-            string body = bodyContext.GetContextText();
-            var globalVariableIndexes = _dataStructure
-                .GlobalState
-                .Variables
-                .Select(x => new Regex($"[^a-zA-Z\\d:]{x.Name}[^a-zA-Z\\d:]"))
-                .Select(x => x.IsMatch(body) ? x.Match(body).Index : -1)
-                .Where(x => x > 0)
-                .Select(x => x + bodyContext.GetStartIndex());
-            insertionIndex = Math.Min(insertionIndex, globalVariableIndexes.Any() ? globalVariableIndexes.Min() : insertionIndex);
-            Method method = _dataStructure[operationName];
-            IfStatement ifStatement = method.IfStatements.FirstOrDefault(x => x.StartIndex < insertionIndex && insertionIndex < x.EndIndex);
-
-            if (ifStatement != null)
-            {
-                insertionIndex = ifStatement.StartIndex;
-            }
-
-            insertionIndex = body.Substring(0, insertionIndex - bodyContext.Start.StartIndex).InvariantLastIndexOf(Environment.NewLine)+ bodyContext.Start.StartIndex+2;
-
-            var result = new Dictionary<int, string>
-            {
-                {insertionIndex, "while (true) {"},
-                {context.Stop.StopIndex - 1, "}"},
-            };
-
-            return result;
         }
 
         /// <summary>
@@ -94,14 +46,14 @@ namespace Prometheus.Services.Service {
 
                 if (snapshot != null)
                 {
-                    oldVariables.Add(snapshot.Snapshot);
+                    oldVariables.Add(snapshot.SnapshotVariable);
                 }
 
                 snapshot = GetSnapshotDeclaration(relationalExpression.RightOperand, relationalExpression.Method);
 
                 if (snapshot != null)
                 {
-                    oldVariables.Add(snapshot.Snapshot);
+                    oldVariables.Add(snapshot.SnapshotVariable);
                 }
             }
 
@@ -193,23 +145,35 @@ namespace Prometheus.Services.Service {
             return relationalExpressions;
         }
 
-        public List<RelationalExpression> GetInnerRelations(CLanguageParser.SelectionStatementContext context) {
-            List<RelationalExpression> relationalExpressions = ExtractAssignments(context);
+        public List<RelationalExpression> GetAssignmentRelations(CLanguageParser.SelectionStatementContext context) {
+            /* TODO:
+             * Currently, if we have
+             * if(condition) {
+             *    assign1;
+             *    assign2;
+             *    if(condition2) {...}
+             *    assign3;
+             * }
+             * every assign expression will be extracted => we need to treat assign1/2 + assign3 separately
+             */
 
-            return relationalExpressions;
-        }
+            string functionName = context
+                .GetFunction()
+                .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
+                .GetName();
+            IfStatement ifStatement = _dataStructure[functionName]
+                .IfStatements
+                .First(x => x.StartIndex == context.Start.StartIndex);
+            IfStatement firstInnerIfStatement = ifStatement
+                .IfStatements
+                .MinItem(x => x.StartIndex);
+            List<RelationalExpression> expressions = ifStatement
+                .Assignments
+                .Where(x => firstInnerIfStatement == null || firstInnerIfStatement.StartIndex > x.Start.StartIndex)
+                .Select(GetRelationalExpression)
+                .ToList();
 
-        public string GetHelpMethod(Structure structure) {
-            var argument = "value";
-            //We just assign the expected argument to the current argument;
-            //The method that manages to set the "operation" field on the argument via CAS instruction is the "owner" of the argument modification
-            var functionDeclaration = $"void Help({structure.Name} * {argument}){{"
-                                        + Environment.NewLine +
-                                            $"{argument} = {argument}.expected;"
-                                        + Environment.NewLine +
-                                      $"}}";
-
-            return functionDeclaration;
+            return expressions;
         }
 
         private VariableSnapshot GetSnapshotDeclaration(string expression, string operation)
@@ -219,7 +183,7 @@ namespace Prometheus.Services.Service {
                 expression.Split(POINTER_ACCESS_MARKER).First() :
                 expression;
 
-            if (_dataStructure.GlobalState.Contains(variable) || (_dataStructure[operation][variable]!=null && _dataStructure[operation][variable].LinksToGlobalState))
+            if (_dataStructure.HasGlobalVariable(variable) || (_dataStructure[operation][variable]!=null && _dataStructure[operation][variable].LinksToGlobalState))
             {
                 string type = _typeService.GetType(expression, operation);
 
@@ -230,7 +194,7 @@ namespace Prometheus.Services.Service {
                 }
 
                 result.Type = type;
-                result.Snapshot = GetSnapshotName(expression);
+                result.SnapshotVariable = GetSnapshotName(expression);
                 result.Variable = expression;
                 return result;
             }
@@ -245,7 +209,7 @@ namespace Prometheus.Services.Service {
                 expression.Split(POINTER_ACCESS_MARKER).First() :
                 expression;
 
-            if (_dataStructure.GlobalState.Contains(variable) || (_dataStructure[operation][variable] != null && _dataStructure[operation][variable].LinksToGlobalState))
+            if (_dataStructure.HasGlobalVariable(variable) || (_dataStructure[operation][variable] != null && _dataStructure[operation][variable].LinksToGlobalState))
             {
                 declaration = GetSnapshotOldName(expression, operation, ref offset);
                 return true;
@@ -282,7 +246,7 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
-        private RelationalExpression GetRelationalExpression(object context)
+        public RelationalExpression GetRelationalExpression(object context)
         {
             var type = context.GetType();
 
@@ -340,62 +304,17 @@ namespace Prometheus.Services.Service {
 
             return result;
         }
-
-        private List<RelationalExpression> ExtractAssignments(CLanguageParser.SelectionStatementContext context) {
-            /* TODO:
-             * Currently, if we have
-             * if(condition) {
-             *    assign1;
-             *    assign2;
-             *    if(condition2) {...}
-             *    assign3;
-             * }
-             * every assign expression will be extracted => we need to treat assign1/2 + assign3 separately
-             */
-
-            string functionName = context
-                .GetFunction()
-                .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
-                .GetName();
-            IfStatement ifStatement = _dataStructure[functionName]
-                .IfStatements
-                .First(x => x.StartIndex == context.Start.StartIndex);
-            IfStatement firstInnerIfStatement = ifStatement
-                .IfStatements
-                .MinItem(x => x.StartIndex);
-            List<RelationalExpression> expressions = ifStatement
-                .Assignments
-                .Where(x => firstInnerIfStatement == null || firstInnerIfStatement.StartIndex > x.Start.StartIndex)
-                .Select(GetRelationalExpression)
-                .ToList();
-
-            return expressions;
-        }
     }
 
     public class VariableSnapshot
     {
         public string Type { get; set; }
-        public string Snapshot { get; set; }
+        public string SnapshotVariable { get; set; }
         public string Variable { get; set; }
 
         public override string ToString()
         {
-            return $"{Type} {Snapshot} = {Variable}";
-        }
-    }
-
-    public class ReplacementDeclaration
-    {
-        public int From { get; set; }
-        public int To { get; set; }
-        public string Value { get; set; }
-
-        public ReplacementDeclaration(int from, int to, string value)
-        {
-            From = from;
-            To = to;
-            Value = value;
+            return $"{Type} {SnapshotVariable} = {Variable}";
         }
     }
 }

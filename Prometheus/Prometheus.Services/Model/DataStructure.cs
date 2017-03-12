@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Prometheus.Common;
 using Prometheus.Services.Extensions;
+using Prometheus.Services.Service;
 
 namespace Prometheus.Services.Model
 {
@@ -12,19 +13,29 @@ namespace Prometheus.Services.Model
 
         public DataStructure()
         {
-            GlobalState = new State();
+            GlobalVariables = new List<Variable>();
             Operations = new List<Method>();
             Structures = new List<Structure>();
             _methodInternalCodes = new Dictionary<string, List<MethodRegion>>();
         }
 
         public List<Structure> Structures { get; set; }
-        public State GlobalState { get; set; }
+        public List<Variable> GlobalVariables { get; set; }
         public List<Method> Operations { get; set; }
 
         public Method this[string name]
         {
             get { return Operations.FirstOrDefault(x => x.Name == name); }
+        }
+
+        public bool HasGlobalVariable(string name)
+        {
+            return GlobalVariables.Any(x => x.Name == name);
+        }
+
+        public Variable GetGlobalVariable(string name)
+        {
+            return GlobalVariables.FirstOrDefault(x => x.Name == name);
         }
 
         public int GetRegionCode(string method, int index)
@@ -42,7 +53,7 @@ namespace Prometheus.Services.Model
 
         public void AddGlobalVariable(Variable variable)
         {
-            GlobalState.Add(variable);
+            GlobalVariables.Add(variable);
         }
 
         public void AddOperation(Method method)
@@ -69,8 +80,7 @@ namespace Prometheus.Services.Model
 
         private void ProcessOperation(Method method)
         {
-            List<string> operationVariables = GlobalState
-                .Variables
+            List<string> operationVariables = GlobalVariables
                 .Select(x=>x.Name)
                 .Except(method.LocalVariables.Select(x => x.Name))
                 .ToList();
@@ -78,14 +88,14 @@ namespace Prometheus.Services.Model
             foreach (var localVariable in method.LocalVariables)
             {
                 localVariable.DependentVariables
-                    .RemoveWhere(x => !operationVariables.Contains(x) && !GlobalState.Contains(x));
+                    .RemoveWhere(x => !operationVariables.Contains(x) && !HasGlobalVariable(x));
                 localVariable.DependentVariables
                     .RemoveWhere(x => x == localVariable.Name);
             }
 
             foreach (var localVariable in method.LocalVariables)
             {
-                if (localVariable.DependentVariables.Any(x => GlobalState.Contains(x)))
+                if (localVariable.DependentVariables.Any(HasGlobalVariable))
                 {
                     LinkToGlobalState(localVariable);
                 }
@@ -284,14 +294,15 @@ namespace Prometheus.Services.Model
 
         private class MethodRegion
         {
-            public int Start { get; }
-            public int End { get; }
+            private readonly Interval _interval;
+
+            public int Start => _interval.Start;
+            public int End => _interval.End;
             public int Code { get; }
 
             public MethodRegion(int start, int end, int code)
             {
-                Start = start;
-                End = end;
+                _interval = new Interval(start, end);
                 Code = code;
             }
         }

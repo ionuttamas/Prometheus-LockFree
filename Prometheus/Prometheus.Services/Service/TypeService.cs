@@ -38,7 +38,7 @@ namespace Prometheus.Services.Service {
 
             return localVariable != null ?
                     localVariable.Type :
-                    _dataStructure.GlobalState[expression].Type;
+                    _dataStructure.GetGlobalVariable(expression).Type;
         }
 
         private string GetStructureVariableType(string expression, string operation) {

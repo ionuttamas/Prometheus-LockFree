@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Antlr4.Runtime.Tree;
 using Prometheus.Common;
 using Prometheus.Services.Extensions;
@@ -12,57 +13,46 @@ using Prometheus.Services.Service;
 
 namespace Prometheus.Services {
     public class CodeGenerator : CodeVisitor {
+        private const string NULL_TOKEN = "NULL";
+        private const string POINTER_ACCESS_MARKER = "->";
+        private const string SNAPSHOT_NAME_MARKER = "old";
+
         private readonly DataStructure _dataStructure;
-        private readonly CodeGenerationService _generationService;
+        private readonly RelationService _relationService;
         private readonly CodeUpdateTable _updateTable;
-        //todo: refactor
-        private readonly List<KeyValuePair<int, string>> nonAssignmentInsertions;
 
         public string CodeOutput { get; private set; }
 
-        public CodeGenerator(DataStructure dataStructure, CodeGenerationService generationService) {
+        public CodeGenerator(DataStructure dataStructure, RelationService relationService) {
             _dataStructure = dataStructure;
-            _generationService = generationService;
+            _relationService = relationService;
             _updateTable = new CodeUpdateTable(dataStructure);
-            nonAssignmentInsertions = new List<KeyValuePair<int, string>>();
         }
 
         public override object VisitCompilationUnit(CLanguageParser.CompilationUnitContext context)
         {
-            var index = _dataStructure.Structures.Max(x => x.EndIndex);
-
-            foreach (var structure in _dataStructure.Structures)
-            {
-                nonAssignmentInsertions.Add(new KeyValuePair<int, string>(structure.Context.structDeclarationList().GetStartIndex(), $"struct {structure.Name} * expected;"));
-            }
-            var helperMethods = string.Join(Environment.NewLine, _dataStructure.Structures.Select(x => _generationService.GetHelpMethod(x)));
-            nonAssignmentInsertions.Add(new KeyValuePair<int, string>(index+2, Environment.NewLine + Environment.NewLine + Environment.NewLine + Environment.NewLine + helperMethods));
+            AugmentStructures();
+            AddHelperMethods();
 
             return base.VisitCompilationUnit(context);
         }
 
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context)
         {
-            Dictionary<int, string> whileDeclarations = _generationService.GetWhileLoopDeclarations(context);
-
-            foreach (var whileDeclaration in whileDeclarations)
-            {
-                _updateTable.AddInsertion(whileDeclaration.Key, whileDeclaration.Value);
-            }
+            AddWhileLoop(context);
 
             return base.VisitFunctionDefinition(context);
         }
 
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
-            List<RelationalExpression> conditionRelations = _generationService.GetConditionRelations(context);
-            //todo: in the case of if(cond) {assign1; assign2; if(..){..} assign3;} we need to take only assign1 and assign2
-            List<RelationalExpression> innerRelations = _generationService.GetInnerRelations(context);
+            List<RelationalExpression> conditionRelations = _relationService.GetConditionRelations(context);
+            List<RelationalExpression> innerRelations = _relationService.GetAssignmentRelations(context);
             conditionRelations.AddRange(innerRelations);
-            string snapshotDeclarations = _generationService.GetSnapshotDeclarations(conditionRelations);
-            string unmarkedVariablesCheckDeclaration = _generationService.GetCheckForUnmarkedVariables(conditionRelations);
+            string snapshotDeclarations = _relationService.GetSnapshotDeclarations(conditionRelations);
+            string unmarkedVariablesCheckDeclaration = _relationService.GetCheckForUnmarkedVariables(conditionRelations);
             var update = new KeyValuePair<int, string>(context.GetStartIndex(), $"{snapshotDeclarations}{Environment.NewLine}{unmarkedVariablesCheckDeclaration}");
-            List<ReplacementDeclaration> replacements = _generationService.GetReplacementDeclarations(context);
-            replacements.AddRange(innerRelations.Select(x=>_generationService.GetReplacementForAssignmentRelation(x)));
+            List<IDeclaration> replacements = GetReplacementDeclarations(context);
+            replacements.AddRange(innerRelations.Select(x=>_relationService.GetReplacementForAssignmentRelation(x)));
 
             if (!string.IsNullOrEmpty(update.Value)) {
                 _updateTable.AddInsertion(update.Key, update.Value);
@@ -86,7 +76,7 @@ namespace Prometheus.Services {
 
             var updates = _updateTable
                 .GetInsertions()
-                .Concat(nonAssignmentInsertions)
+                //.Concat(nonAssignmentInsertions)
                 .Where(x=>!string.IsNullOrEmpty(x.Value))
                 .Select(x => new {Index = x.Key, Insert = x, Replace = default(KeyValuePair<int, KeyValuePair<int, string>>)})
                 .Concat(_updateTable.GetReplacements().Select(x => new {Index = x.Key, Insert = default(KeyValuePair<int, string>), Replace = x}))
@@ -105,12 +95,168 @@ namespace Prometheus.Services {
             }
         }
 
+        /// <summary>
+        /// Adds the "while loop for this method.
+        /// </summary>
+        private void AddWhileLoop(CLanguageParser.FunctionDefinitionContext context) {
+            List<IDeclaration> declarations = GetWhileLoopDeclarations(context);
+
+            foreach (var declaration in declarations)
+                _updateTable.AddDeclaration(declaration);
+        }
+
+        /// <summary>
+        /// Add "expected" field to each pointer-based structure.
+        /// </summary>
+        private void AugmentStructures() {
+            foreach (var structure in _dataStructure.Structures) {
+                int structInsertIndex = structure.Context.structDeclarationList().GetStartIndex();
+                string value = $"struct {structure.Name} * expected;";
+                _updateTable.AddDeclaration(new InsertionDeclaration(structInsertIndex, value));
+            }
+        }
+
+        /// <summary>
+        /// Add helper methods for each pointer-based structure.
+        /// </summary>
+        private void AddHelperMethods() {
+            int helperMethodsIndex = _dataStructure.Structures.Max(x => x.EndIndex);
+            string helperMethods = string.Join(Environment.NewLine, _dataStructure.Structures.Select(GetHelpMethod));
+            _updateTable.AddDeclaration(new InsertionDeclaration(helperMethodsIndex, helperMethods));
+        }
+
+        /// <summary>
+        /// Gets the helper method for the given structure type.
+        /// </summary>
+        private static string GetHelpMethod(Structure structure) {
+            var argument = "value";
+            //We just assign the expected argument to the current argument;
+            //The method that manages to set the "operation" field on the argument via CAS instruction is the "owner" of the argument modification
+            var functionDeclaration = $"void Help({structure.Name} * {argument}){{"
+                                        + Environment.NewLine +
+                                            $"{argument} = {argument}.expected;"
+                                        + Environment.NewLine +
+                                      $"}}";
+
+            return functionDeclaration;
+        }
+
+        private List<IDeclaration> GetWhileLoopDeclarations(CLanguageParser.FunctionDefinitionContext context) {
+            int insertionIndex = int.MaxValue;
+            string operationName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
+
+            var localVariables = _dataStructure[operationName]
+                .LocalVariables
+                .OrderBy(x => x.Index)
+                .ToList();
+            var variable = localVariables
+                .Skip(1) //todo:why??
+                .Select((var, ix) => new { Variable = var, Index = ix })
+                .FirstOrDefault(x => x.Variable.LinksToGlobalState);
+
+            if (variable != null) {
+                insertionIndex = localVariables[variable.Index].Index;
+            }
+
+            var bodyContext = context.compoundStatement();
+            string body = bodyContext.GetContextText();
+            var globalVariableIndexes = _dataStructure
+                .GlobalVariables
+                .Select(x => new Regex($"[^a-zA-Z\\d:]{x.Name}[^a-zA-Z\\d:]"))
+                .Select(x => x.IsMatch(body) ? x.Match(body).Index : -1)
+                .Where(x => x > 0)
+                .Select(x => x + bodyContext.GetStartIndex());
+            // If there is a global variable, we take the minimum between that index and the local variable that links to global state
+            insertionIndex = Math.Min(insertionIndex, globalVariableIndexes.Any() ? globalVariableIndexes.Min() : insertionIndex);
+            Method method = _dataStructure[operationName];
+
+            // If the local or global variable is embedded in an "if" statement, we will embed the "if" statement in the "while" loop as well
+            if (method.IfStatements.Any()) {
+                var index = insertionIndex;
+                var surroundingIfStatements = method.IfStatements.Where(x => x.Context.ContainsIndex(index));
+
+                if (surroundingIfStatements.Any()) {
+                    insertionIndex = Math.Min(insertionIndex, surroundingIfStatements.Min(x => x.StartIndex));
+                }
+            }
+
+            insertionIndex = body.Substring(0, insertionIndex - bodyContext.GetStartIndex()).InvariantLastIndexOf(Environment.NewLine) + bodyContext.GetStartIndex() + 2;
+            var offset = body.Substring(insertionIndex - bodyContext.GetStartIndex())
+                .Select((var, ix) => new {Character = var, Index = ix})
+                .First(x => char.IsWhiteSpace(x.Character))
+                .Index;
+
+            var result = new List<IDeclaration>
+            {
+                new InsertionDeclaration(insertionIndex, new string(' ', offset) + "while (true) {"),
+                new InsertionDeclaration(context.GetStopIndex() - 1, "}")
+            };
+
+            return result;
+        }
+
+        private List<IDeclaration> GetReplacementDeclarations(CLanguageParser.SelectionStatementContext context) {
+            var result = new List<IDeclaration>();
+            List<RelationalExpression> relationalExpressions = context
+                .expression()
+                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
+                .Select(x => (object)x.Parent)
+                .Select(_relationService.GetRelationalExpression)
+                .ToList();
+
+            foreach (var relation in relationalExpressions) {
+                var leftOperandReplacement = GetReplacementDeclaration(relation.LeftOperand, relation.LeftOperandInterval, relation.Method);
+
+                if(leftOperandReplacement!=null)
+                    result.Add(leftOperandReplacement);
+
+                var rightOperandReplacement = GetReplacementDeclaration(relation.RightOperand, relation.RightOperandInterval, relation.Method);
+
+                if(rightOperandReplacement != null)
+                    result.Add(rightOperandReplacement);
+            }
+
+            return result;
+        }
+
+        private IDeclaration GetReplacementDeclaration(string expression, Interval interval, string method) {
+            int offset = 0;
+            string declaration;
+            string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
+                expression.Split(POINTER_ACCESS_MARKER).First() :
+                expression;
+
+            if (_dataStructure.HasGlobalVariable(variable) || (_dataStructure[method][variable] != null && _dataStructure[method][variable].LinksToGlobalState)) {
+                if (expression.ContainsInvariant(POINTER_ACCESS_MARKER))
+                {
+                    declaration = GetSnapshotName(expression);
+                }
+                else
+                {
+                    int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
+                    offset = expression.Length - pointerIndex;
+                    expression = expression.Substring(0, pointerIndex);
+                    declaration = GetSnapshotName(expression);
+                }
+
+                return new ReplacementDeclaration(interval.Start, interval.End - offset, declaration);
+            }
+
+            return null;
+        }
+
+        private static string GetSnapshotName(string expression) {
+            string result = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
+
+            return result;
+        }
+
         private void Insert(KeyValuePair<int, string> insertion)
         {
             var index = insertion.Key;
             var indentOffset = index - CodeOutput.Substring(0, index).InvariantLastIndexOf(Environment.NewLine) - 2;
             var declarations = IndentDeclarations(insertion.Value, indentOffset);
-            CodeOutput = CodeOutput.InsertAtIndex(declarations, index);
+            CodeOutput = CodeOutput.InsertAt(index, declarations);
         }
 
         private void Replace(KeyValuePair<int, KeyValuePair<int, string>> replacement)
@@ -146,6 +292,11 @@ namespace Prometheus.Services {
                 _insertions = new Dictionary<int, string>();
                 _replacements = new Dictionary<int, KeyValuePair<int, string>>();
                 _dataStructure = dataStructure;
+            }
+
+            public void AddDeclaration<IDeclaration>(IDeclaration declaration)
+            {
+
             }
 
             public void AddInsertion(int index, string value) {
