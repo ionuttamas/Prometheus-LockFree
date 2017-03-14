@@ -36,11 +36,6 @@ namespace Prometheus.Services.Service
             return checkExpression;
         }
 
-        public string GetCheckAndMarkCondition(VariableSnapshot snapshot, int regionCode)
-        {
-            var checkAndMarkCondition = $"if(!CAS({snapshot.Variable}, {snapshot.SnapshotVariable}, FLAG({snapshot.SnapshotVariable}, {regionCode})) {{ HELP HERE; continue; }}";
-
-            return checkAndMarkCondition;
-        }
+        
     }
 }

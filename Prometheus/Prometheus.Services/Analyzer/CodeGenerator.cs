@@ -16,6 +16,7 @@ namespace Prometheus.Services {
         private const string NULL_TOKEN = "NULL";
         private const string POINTER_ACCESS_MARKER = "->";
         private const string SNAPSHOT_NAME_MARKER = "old";
+        private const string UNMARKED_POINTER = "STATE_OP_NONE";
 
         private readonly DataStructure _dataStructure;
         private readonly RelationService _relationService;
@@ -31,7 +32,9 @@ namespace Prometheus.Services {
 
         public override object VisitCompilationUnit(CLanguageParser.CompilationUnitContext context)
         {
+            AddFlags();
             AugmentStructures();
+            AddFlagMethods();
             AddHelperMethods();
 
             return base.VisitCompilationUnit(context);
@@ -44,23 +47,23 @@ namespace Prometheus.Services {
             return base.VisitFunctionDefinition(context);
         }
 
-        public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
+        public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context)
+        {
+            var relations = new List<RelationalExpression>();
             List<RelationalExpression> conditionRelations = _relationService.GetConditionRelations(context);
-            List<RelationalExpression> innerRelations = _relationService.GetAssignmentRelations(context);
-            conditionRelations.AddRange(innerRelations);
-            string snapshotDeclarations = _relationService.GetSnapshotDeclarations(conditionRelations);
-            string unmarkedVariablesCheckDeclaration = _relationService.GetCheckForUnmarkedVariables(conditionRelations);
-            var update = new KeyValuePair<int, string>(context.GetStartIndex(), $"{snapshotDeclarations}{Environment.NewLine}{unmarkedVariablesCheckDeclaration}");
-            List<IDeclaration> replacements = GetReplacementDeclarations(context);
-            replacements.AddRange(innerRelations.Select(x=>_relationService.GetReplacementForAssignmentRelation(x)));
+            List<RelationalExpression> assignmentRelations = _relationService.GetAssignmentRelations(context);
+            relations.AddRange(conditionRelations);
+            relations.AddRange(assignmentRelations);
 
-            if (!string.IsNullOrEmpty(update.Value)) {
-                _updateTable.AddInsertion(update.Key, update.Value);
-            }
+            string variablesSnapshot = GetVariablesSnapshot(relations);
+            string snapshotFlagCheck = GetSnapshotsFlagCheckExpression(relations);
+            InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(context.GetStartIndex(), $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}");
+            List<IDeclaration> conditionReplacements = GetConditionReplacements(conditionRelations);
+            List<IDeclaration> assignmentReplacements = GetAssignmentsReplacements(assignmentRelations);
 
-            foreach (var replacement in replacements) {
-                _updateTable.AddReplacement(replacement.From, replacement.To, replacement.Value);
-            }
+            _updateTable.AddDeclaration(snapshotAndCheckInsertion);
+            conditionReplacements.ForEach(_updateTable.AddDeclaration);
+            assignmentReplacements.ForEach(_updateTable.AddDeclaration);
 
             return base.VisitSelectionStatement(context);
         }
@@ -99,49 +102,6 @@ namespace Prometheus.Services {
         /// Adds the "while loop for this method.
         /// </summary>
         private void AddWhileLoop(CLanguageParser.FunctionDefinitionContext context) {
-            List<IDeclaration> declarations = GetWhileLoopDeclarations(context);
-
-            foreach (var declaration in declarations)
-                _updateTable.AddDeclaration(declaration);
-        }
-
-        /// <summary>
-        /// Add "expected" field to each pointer-based structure.
-        /// </summary>
-        private void AugmentStructures() {
-            foreach (var structure in _dataStructure.Structures) {
-                int structInsertIndex = structure.Context.structDeclarationList().GetStartIndex();
-                string value = $"struct {structure.Name} * expected;";
-                _updateTable.AddDeclaration(new InsertionDeclaration(structInsertIndex, value));
-            }
-        }
-
-        /// <summary>
-        /// Add helper methods for each pointer-based structure.
-        /// </summary>
-        private void AddHelperMethods() {
-            int helperMethodsIndex = _dataStructure.Structures.Max(x => x.EndIndex);
-            string helperMethods = string.Join(Environment.NewLine, _dataStructure.Structures.Select(GetHelpMethod));
-            _updateTable.AddDeclaration(new InsertionDeclaration(helperMethodsIndex, helperMethods));
-        }
-
-        /// <summary>
-        /// Gets the helper method for the given structure type.
-        /// </summary>
-        private static string GetHelpMethod(Structure structure) {
-            var argument = "value";
-            //We just assign the expected argument to the current argument;
-            //The method that manages to set the "operation" field on the argument via CAS instruction is the "owner" of the argument modification
-            var functionDeclaration = $"void Help({structure.Name} * {argument}){{"
-                                        + Environment.NewLine +
-                                            $"{argument} = {argument}.expected;"
-                                        + Environment.NewLine +
-                                      $"}}";
-
-            return functionDeclaration;
-        }
-
-        private List<IDeclaration> GetWhileLoopDeclarations(CLanguageParser.FunctionDefinitionContext context) {
             int insertionIndex = int.MaxValue;
             string operationName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
 
@@ -182,29 +142,107 @@ namespace Prometheus.Services {
 
             insertionIndex = body.Substring(0, insertionIndex - bodyContext.GetStartIndex()).InvariantLastIndexOf(Environment.NewLine) + bodyContext.GetStartIndex() + 2;
             var offset = body.Substring(insertionIndex - bodyContext.GetStartIndex())
-                .Select((var, ix) => new {Character = var, Index = ix})
+                .Select((var, ix) => new { Character = var, Index = ix })
                 .First(x => char.IsWhiteSpace(x.Character))
                 .Index;
 
-            var result = new List<IDeclaration>
-            {
-                new InsertionDeclaration(insertionIndex, new string(' ', offset) + "while (true) {"),
-                new InsertionDeclaration(context.GetStopIndex() - 1, "}")
-            };
-
-            return result;
+            _updateTable.AddDeclaration(new InsertionDeclaration(insertionIndex, new string(' ', offset) + "while (true) {"));
+            _updateTable.AddDeclaration(new InsertionDeclaration(context.GetStopIndex() - 1, "}"));
         }
 
-        private List<IDeclaration> GetReplacementDeclarations(CLanguageParser.SelectionStatementContext context) {
-            var result = new List<IDeclaration>();
-            List<RelationalExpression> relationalExpressions = context
-                .expression()
-                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
-                .Select(x => (object)x.Parent)
-                .Select(_relationService.GetRelationalExpression)
-                .ToList();
+        /// <summary>
+        /// Add "expected" field to each pointer-based structure.
+        /// </summary>
+        private void AugmentStructures() {
+            foreach (var structure in _dataStructure.Structures) {
+                int structInsertIndex = structure.Context.structDeclarationList().GetStartIndex();
+                string value = $"struct {structure.Name} * expected;";
+                _updateTable.AddDeclaration(new InsertionDeclaration(structInsertIndex, value));
+            }
+        }
 
-            foreach (var relation in relationalExpressions) {
+        /// <summary>
+        /// Adds the predefined flags that will be used in tag checking.
+        /// </summary>
+        private void AddFlags()
+        {
+            int index = _dataStructure.Structures.Min(x => x.StartIndex);
+            _updateTable.AddDeclaration(new InsertionDeclaration(index, $"#define {UNMARKED_POINTER} 0"));
+        }
+
+        //todo: this can be changed to generic, structure agnostic pointer tagging
+        private void AddFlagMethods()
+        {
+            var builder = new StringBuilder();
+            int index = _dataStructure.Structures.Max(x => x.EndIndex);
+
+            var getFlagFormat = "static inline uint64_t GETFLAG({0}* ptr) {{" +
+                                Environment.NewLine +
+                                "      return ((uint64_t)ptr) & 8; " +
+                                Environment.NewLine +
+                                "}";
+            var setFlagFormat = "static inline uint64_t FLAG({0}* ptr, uint64_t flag) {{" +
+                                Environment.NewLine +
+                                "      return ((uint64_t)ptr) & flag; " +
+                                Environment.NewLine +
+                                "}";
+
+            foreach (var structure in _dataStructure.Structures)
+            {
+                builder.AppendLine(string.Format(setFlagFormat, structure.Name));
+            }
+
+            foreach (var structure in _dataStructure.Structures)
+            {
+                builder.AppendLine(string.Format(getFlagFormat, structure.Name));
+            }
+
+            _updateTable.AddDeclaration(new InsertionDeclaration(index, builder.ToString()));
+        }
+
+        /// <summary>
+        /// Add helper methods for each pointer-based structure.
+        /// </summary>
+        private void AddHelperMethods() {
+            int helperMethodsIndex = _dataStructure.Structures.Max(x => x.EndIndex);
+            string helperMethods = string.Join(Environment.NewLine, _dataStructure.Structures.Select(GetHelpMethod));
+            _updateTable.AddDeclaration(new InsertionDeclaration(helperMethodsIndex, helperMethods));
+        }
+
+        /// <summary>
+        /// Gets the helper method for the given structure type.
+        /// </summary>
+        private static string GetHelpMethod(Structure structure) {
+            var argument = "value";
+            //We just assign the expected argument to the current argument;
+            //The method that manages to set the "operation" field on the argument via CAS instruction is the "owner" of the argument modification
+            var functionDeclaration = $"void Help({structure.Name} * {argument}){{"
+                                        + Environment.NewLine +
+                                            $"{argument} = {argument}.expected;"
+                                        + Environment.NewLine +
+                                      $"}}";
+
+            return functionDeclaration;
+        }
+
+        private static string GetSnapshotsFlagCheckExpression(List<RelationalExpression> relations) {
+            var snapshotVariables = relations
+                .SelectMany(x => new List<VariableSnapshot> {x.LeftOperandSnapshot, x.RightOperandSnapshot})
+                .Where(x => x != null)
+                .Select(x => x.SnapshotVariable);
+
+            var variableCondition = $"GETFLAG({{0}})!={UNMARKED_POINTER}";
+            var condition = string.Join("||", snapshotVariables.Select(x => string.Format(variableCondition, x)));
+            var checkExpression = $"if({condition}) {{ HELP HERE; continue; }}";
+
+            return checkExpression;
+        }
+
+        private List<IDeclaration> GetConditionReplacements(List<RelationalExpression> relations) {
+            var result = new List<IDeclaration>();
+
+            foreach (var relation in relations) {
+                //todo: treat the null check case separately
                 var leftOperandReplacement = GetReplacementDeclaration(relation.LeftOperand, relation.LeftOperandInterval, relation.Method);
 
                 if(leftOperandReplacement!=null)
@@ -214,6 +252,35 @@ namespace Prometheus.Services {
 
                 if(rightOperandReplacement != null)
                     result.Add(rightOperandReplacement);
+            }
+
+            return result;
+        }
+
+        private List<IDeclaration> GetAssignmentsReplacements(List<RelationalExpression> relations)
+        {
+            if (!relations.Any())
+                return new List<IDeclaration>();
+
+            var result = new List<IDeclaration>();
+            var builder = new StringBuilder();
+            var method = relations[0].Method;
+
+            foreach (var relation in relations)
+            {
+                var startIndex = relation.LeftOperandInterval.Start;
+                var endIndex = relation.RightOperandInterval.End;
+
+                if (relation.RightOperandSnapshot != null && relation.RightOperand != NULL_TOKEN)
+                {
+                    builder.AppendLine(GetCasCondition(relation.RightOperandSnapshot,
+                        _dataStructure.GetRegionCode(method, startIndex)));
+                }
+
+                builder.AppendLine(GetCasCondition(relation.LeftOperandSnapshot,
+                    _dataStructure.GetRegionCode(method, startIndex)));
+
+                result.Add(new ReplacementDeclaration(startIndex, endIndex, builder.ToString()));
             }
 
             return result;
@@ -243,6 +310,27 @@ namespace Prometheus.Services {
             }
 
             return null;
+        }
+
+        private static string GetCasCondition(VariableSnapshot snapshot, int regionCode) {
+            var checkAndMarkCondition = $"if(!CAS({snapshot.Variable}, {snapshot.SnapshotVariable}, FLAG({snapshot.SnapshotVariable}, {regionCode})) {{ HELP HERE; continue; }}";
+
+            return checkAndMarkCondition;
+        }
+
+        private static string GetVariablesSnapshot(List<RelationalExpression> relations) {
+            var builder = new StringBuilder();
+
+            foreach (var relation in relations) {
+                if (relation.LeftOperandSnapshot != null) {
+                    builder.AppendLine(relation.LeftOperandSnapshot.ToString());
+                }
+                if (relation.RightOperandSnapshot != null) {
+                    builder.AppendLine(relation.RightOperandSnapshot.ToString());
+                }
+            }
+
+            return builder.ToString();
         }
 
         private static string GetSnapshotName(string expression) {
@@ -294,7 +382,7 @@ namespace Prometheus.Services {
                 _dataStructure = dataStructure;
             }
 
-            public void AddDeclaration<IDeclaration>(IDeclaration declaration)
+            public void AddDeclaration(IDeclaration declaration)
             {
 
             }

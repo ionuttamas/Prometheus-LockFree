@@ -12,8 +12,7 @@ namespace Prometheus.Services.UnitTests
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var typeService = new TypeService(extractor.DataStructure);
-            var atomicService = new AtomicService();
-            var generationService = new RelationService(extractor.DataStructure, typeService, atomicService);
+            var generationService = new RelationService(extractor.DataStructure, typeService);
             var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 
@@ -32,8 +31,7 @@ namespace Prometheus.Services.UnitTests
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var typeService = new TypeService(extractor.DataStructure);
-            var atomicService = new AtomicService();
-            var generationService = new RelationService(extractor.DataStructure, typeService, atomicService);
+            var generationService = new RelationService(extractor.DataStructure, typeService);
             var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 
@@ -51,8 +49,7 @@ namespace Prometheus.Services.UnitTests
             var extractor = new DataStructureExtractor();
             extractor.Visit(codeInput);
             var typeService = new TypeService(extractor.DataStructure);
-            var atomicService = new AtomicService();
-            var generationService = new RelationService(extractor.DataStructure, typeService, atomicService);
+            var generationService = new RelationService(extractor.DataStructure, typeService);
             var codeGenerator = new CodeGenerator(extractor.DataStructure, generationService);
             codeGenerator.Visit(codeInput);
 
