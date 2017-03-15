@@ -65,7 +65,7 @@
     <Compile Include="Parser\CLanguageParser.cs" />
     <Compile Include="Parser\CLanguageVisitor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Service\CodeGenerationService.cs" />
+    <Compile Include="Service\RelationService.cs" />
     <Compile Include="Service\Declaration\IDeclaration.cs" />
     <Compile Include="Service\Declaration\InsertionDeclaration.cs" />
     <Compile Include="Service\Interval.cs" />

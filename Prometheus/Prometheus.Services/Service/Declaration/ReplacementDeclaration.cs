@@ -1,6 +1,8 @@
 namespace Prometheus.Services.Service
 {
-    public class ReplacementDeclaration : IDeclaration {
+    public class ReplacementDeclaration : IDeclaration
+    {
+        public int Index => From;
         public int From { get; set; }
         public int To { get; set; }
         public string Value { get; set; }

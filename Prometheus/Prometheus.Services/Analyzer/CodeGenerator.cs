@@ -27,7 +27,7 @@ namespace Prometheus.Services {
         public CodeGenerator(DataStructure dataStructure, RelationService relationService) {
             _dataStructure = dataStructure;
             _relationService = relationService;
-            _updateTable = new CodeUpdateTable(dataStructure);
+            _updateTable = new CodeUpdateTable();
         }
 
         public override object VisitCompilationUnit(CLanguageParser.CompilationUnitContext context)
@@ -61,9 +61,9 @@ namespace Prometheus.Services {
             List<IDeclaration> conditionReplacements = GetConditionReplacements(conditionRelations);
             List<IDeclaration> assignmentReplacements = GetAssignmentsReplacements(assignmentRelations);
 
-            _updateTable.AddDeclaration(snapshotAndCheckInsertion);
-            conditionReplacements.ForEach(_updateTable.AddDeclaration);
-            assignmentReplacements.ForEach(_updateTable.AddDeclaration);
+            _updateTable.Add(snapshotAndCheckInsertion);
+            conditionReplacements.ForEach(_updateTable.Add);
+            assignmentReplacements.ForEach(_updateTable.Add);
 
             return base.VisitSelectionStatement(context);
         }
@@ -72,30 +72,7 @@ namespace Prometheus.Services {
         }
 
         protected override void PostVisit(IParseTree tree, string input) {
-            CodeOutput = input;
-
-            if (!_updateTable.IsEmpty())
-                return;
-
-            var updates = _updateTable
-                .GetInsertions()
-                //.Concat(nonAssignmentInsertions)
-                .Where(x=>!string.IsNullOrEmpty(x.Value))
-                .Select(x => new {Index = x.Key, Insert = x, Replace = default(KeyValuePair<int, KeyValuePair<int, string>>)})
-                .Concat(_updateTable.GetReplacements().Select(x => new {Index = x.Key, Insert = default(KeyValuePair<int, string>), Replace = x}))
-                .OrderByDescending(x => x.Index)
-                .ToList();
-
-            foreach (var update in updates) {
-                if (!update.Insert.IsDefault())
-                {
-                    Insert(update.Insert);
-                }
-                else
-                {
-                    Replace(update.Replace);
-                }
-            }
+            CodeOutput = _updateTable.ApplyUpdates(input);
         }
 
         /// <summary>
@@ -146,8 +123,8 @@ namespace Prometheus.Services {
                 .First(x => char.IsWhiteSpace(x.Character))
                 .Index;
 
-            _updateTable.AddDeclaration(new InsertionDeclaration(insertionIndex, new string(' ', offset) + "while (true) {"));
-            _updateTable.AddDeclaration(new InsertionDeclaration(context.GetStopIndex() - 1, "}"));
+            _updateTable.Add(new InsertionDeclaration(insertionIndex, new string(' ', offset) + "while (true) {"));
+            _updateTable.Add(new InsertionDeclaration(context.GetStopIndex() - 1, "}"));
         }
 
         /// <summary>
@@ -157,7 +134,7 @@ namespace Prometheus.Services {
             foreach (var structure in _dataStructure.Structures) {
                 int structInsertIndex = structure.Context.structDeclarationList().GetStartIndex();
                 string value = $"struct {structure.Name} * expected;";
-                _updateTable.AddDeclaration(new InsertionDeclaration(structInsertIndex, value));
+                _updateTable.Add(new InsertionDeclaration(structInsertIndex, value));
             }
         }
 
@@ -167,7 +144,7 @@ namespace Prometheus.Services {
         private void AddFlags()
         {
             int index = _dataStructure.Structures.Min(x => x.StartIndex);
-            _updateTable.AddDeclaration(new InsertionDeclaration(index, $"#define {UNMARKED_POINTER} 0"));
+            _updateTable.Add(new InsertionDeclaration(index, $"#define {UNMARKED_POINTER} 0"));
         }
 
         //todo: this can be changed to generic, structure agnostic pointer tagging
@@ -180,12 +157,12 @@ namespace Prometheus.Services {
                                 Environment.NewLine +
                                 "      return ((uint64_t)ptr) & 8; " +
                                 Environment.NewLine +
-                                "}";
+                                "}}";
             var setFlagFormat = "static inline uint64_t FLAG({0}* ptr, uint64_t flag) {{" +
                                 Environment.NewLine +
                                 "      return ((uint64_t)ptr) & flag; " +
                                 Environment.NewLine +
-                                "}";
+                                "}}";
 
             foreach (var structure in _dataStructure.Structures)
             {
@@ -197,7 +174,7 @@ namespace Prometheus.Services {
                 builder.AppendLine(string.Format(getFlagFormat, structure.Name));
             }
 
-            _updateTable.AddDeclaration(new InsertionDeclaration(index, builder.ToString()));
+            _updateTable.Add(new InsertionDeclaration(index, builder.ToString()));
         }
 
         /// <summary>
@@ -206,7 +183,7 @@ namespace Prometheus.Services {
         private void AddHelperMethods() {
             int helperMethodsIndex = _dataStructure.Structures.Max(x => x.EndIndex);
             string helperMethods = string.Join(Environment.NewLine, _dataStructure.Structures.Select(GetHelpMethod));
-            _updateTable.AddDeclaration(new InsertionDeclaration(helperMethodsIndex, helperMethods));
+            _updateTable.Add(new InsertionDeclaration(helperMethodsIndex, helperMethods));
         }
 
         /// <summary>
@@ -229,11 +206,10 @@ namespace Prometheus.Services {
             var snapshotVariables = relations
                 .SelectMany(x => new List<VariableSnapshot> {x.LeftOperandSnapshot, x.RightOperandSnapshot})
                 .Where(x => x != null)
+                .Distinct()
                 .Select(x => x.SnapshotVariable);
-
-            var variableCondition = $"GETFLAG({{0}})!={UNMARKED_POINTER}";
-            var condition = string.Join("||", snapshotVariables.Select(x => string.Format(variableCondition, x)));
-            var checkExpression = $"if({condition}) {{ HELP HERE; continue; }}";
+            var checkExpression = string.Join(Environment.NewLine,
+                snapshotVariables.Select(x => $"if(GETFLAG({x})!={UNMARKED_POINTER}) {{ HELP HERE; continue; }}"));
 
             return checkExpression;
         }
@@ -280,7 +256,7 @@ namespace Prometheus.Services {
                 builder.AppendLine(GetCasCondition(relation.LeftOperandSnapshot,
                     _dataStructure.GetRegionCode(method, startIndex)));
 
-                result.Add(new ReplacementDeclaration(startIndex, endIndex, builder.ToString()));
+                result.Add(new ReplacementDeclaration(startIndex, endIndex + 1, builder.ToString()));
             }
 
             return result;
@@ -294,16 +270,16 @@ namespace Prometheus.Services {
                 expression;
 
             if (_dataStructure.HasGlobalVariable(variable) || (_dataStructure[method][variable] != null && _dataStructure[method][variable].LinksToGlobalState)) {
-                if (expression.ContainsInvariant(POINTER_ACCESS_MARKER))
+                if (!expression.ContainsInvariant(POINTER_ACCESS_MARKER))
                 {
-                    declaration = GetSnapshotName(expression);
+                    declaration = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
                 }
                 else
                 {
                     int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
                     offset = expression.Length - pointerIndex;
                     expression = expression.Substring(0, pointerIndex);
-                    declaration = GetSnapshotName(expression);
+                    declaration = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
                 }
 
                 return new ReplacementDeclaration(interval.Start, interval.End - offset, declaration);
@@ -321,160 +297,42 @@ namespace Prometheus.Services {
         private static string GetVariablesSnapshot(List<RelationalExpression> relations) {
             var builder = new StringBuilder();
 
-            foreach (var relation in relations) {
+            foreach (var relation in relations.Distinct(x => x.LeftOperand)) {
                 if (relation.LeftOperandSnapshot != null) {
-                    builder.AppendLine(relation.LeftOperandSnapshot.ToString());
+                    builder.AppendLine(relation.LeftOperandSnapshot + ";");
                 }
+            }
+
+            foreach (var relation in relations.Distinct(x => x.RightOperand)) {
                 if (relation.RightOperandSnapshot != null) {
-                    builder.AppendLine(relation.RightOperandSnapshot.ToString());
+                    builder.AppendLine(relation.RightOperandSnapshot + ";");
                 }
             }
-
-            return builder.ToString();
-        }
-
-        private static string GetSnapshotName(string expression) {
-            string result = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
-
-            return result;
-        }
-
-        private void Insert(KeyValuePair<int, string> insertion)
-        {
-            var index = insertion.Key;
-            var indentOffset = index - CodeOutput.Substring(0, index).InvariantLastIndexOf(Environment.NewLine) - 2;
-            var declarations = IndentDeclarations(insertion.Value, indentOffset);
-            CodeOutput = CodeOutput.InsertAt(index, declarations);
-        }
-
-        private void Replace(KeyValuePair<int, KeyValuePair<int, string>> replacement)
-        {
-            CodeOutput = CodeOutput.Substring(0, replacement.Key) + replacement.Value.Value + CodeOutput.Substring(replacement.Value.Key+1);
-        }
-
-        private static string IndentDeclarations(string declarations, int indentOffset) {
-            var declarationStatements = declarations
-                .Split(Environment.NewLine)
-                .ToList();
-            string indentSpaces = string.Join("", Enumerable.Repeat(" ", indentOffset));
-            var builder = new StringBuilder();
-            builder.AppendLine(declarationStatements[0]);
-
-            foreach (var declaration in declarations.Split(Environment.NewLine).Skip(1)) {
-                builder.AppendLine(indentSpaces + declaration);
-            }
-
-            builder.Append(indentSpaces);
 
             return builder.ToString();
         }
 
         private class CodeUpdateTable {
-            private const string ASSIGNMENT_MARKER = "=";
-            private const string SEPARATOR_MARKER = " ";
-            private readonly DataStructure _dataStructure;
-            private Dictionary<int, string> _insertions;
-            private readonly Dictionary<int, KeyValuePair<int, string>> _replacements;
+            private readonly List<IDeclaration> _declarations;
 
-            public CodeUpdateTable(DataStructure dataStructure) {
-                _insertions = new Dictionary<int, string>();
-                _replacements = new Dictionary<int, KeyValuePair<int, string>>();
-                _dataStructure = dataStructure;
-            }
-
-            public void AddDeclaration(IDeclaration declaration)
+            public CodeUpdateTable()
             {
-
+                _declarations = new List<IDeclaration>();
             }
 
-            public void AddInsertion(int index, string value) {
-                if (IsAssignment(value))
+            public void Add(IDeclaration declaration)
+            {
+                _declarations.Add(declaration);
+            }
+
+            public string ApplyUpdates(string text)
+            {
+                foreach (var declaration in _declarations.OrderByDescending(x=>x.Index))
                 {
-                    if (_insertions.ContainsKey(index))
-                    {
-                        _insertions[index] = $"{_insertions[index]}{Environment.NewLine}{value}";
-                    }
-                    else
-                    {
-                        _insertions[index] = value;
-                    }
-                }
-                else
-                {
-                    if (_insertions.ContainsKey(index)) {
-                        _insertions[index] = $"{value}{Environment.NewLine}{_insertions[index]}";
-                    } else {
-                        _insertions[index] = value;
-                    }
-                }
-            }
-
-            public void AddReplacement(int startIndex, int endIndex, string value)
-            {
-                _replacements[startIndex] = new KeyValuePair<int, string>(endIndex, value);
-            }
-
-            public bool IsEmpty()
-            {
-                return _insertions.Any();
-            }
-
-            public IEnumerable<KeyValuePair<int, string>> GetInsertions() {
-                UpdateDeclarations();
-                return _insertions.OrderBy(x => x.Key);
-            }
-
-            public IEnumerable<KeyValuePair<int, KeyValuePair<int, string>>> GetReplacements() {
-                return _replacements.OrderBy(x => x.Key);
-            }
-
-            private void UpdateDeclarations()
-            {
-                var result = new Dictionary<int, string>();
-                var operationsDeclarations = _dataStructure.Operations.ToDictionary(x => x, x => new List<string>());
-
-                foreach (var update in _insertions.OrderBy(x => x.Key))
-                {
-                    var builder = new StringBuilder();
-
-                    foreach (var declaration in update.Value.Split(Environment.NewLine))
-                    {
-                        if (!IsAssignment(declaration))
-                        {
-                            builder.AppendLine(declaration);
-                            continue;
-                        }
-
-                        KeyValuePair<string, string> assignment = GetVariableAssignment(declaration);
-                        KeyValuePair<Method, List<string>> entry = operationsDeclarations
-                            .First(x => x.Key.StartIndex < update.Key && update.Key < x.Key.EndIndex);
-
-                        if (!entry.Value.Contains(assignment.Key))
-                        {
-                            builder.AppendLine(declaration);
-                            entry.Value.Add(assignment.Key);
-                        }
-                    }
-
-                    result[update.Key] = builder.ToString();
+                    text = declaration.ApplyOn(text);
                 }
 
-                _insertions = result;
-            }
-
-            private static bool IsAssignment(string value)
-            {
-                return value.Contains(ASSIGNMENT_MARKER);
-            }
-
-            private static KeyValuePair<string, string> GetVariableAssignment(string declaration) {
-                string[] tokens = declaration
-                    .Substring(0, declaration.InvariantIndexOf(ASSIGNMENT_MARKER))
-                    .Trim()
-                    .Split(SEPARATOR_MARKER);
-                var assignmentExpression = declaration.Substring(declaration.InvariantIndexOf(ASSIGNMENT_MARKER));
-
-                return new KeyValuePair<string, string>(tokens.Last(), $"{tokens.Last()} {assignmentExpression}");
+                return text;
             }
         }
     }

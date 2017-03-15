@@ -140,7 +140,6 @@ namespace Prometheus.Services.Service {
         }
 
         private VariableSnapshot GetSnapshotDeclaration(string expression, string operation) {
-            var result = new VariableSnapshot();
             string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
                 expression.Split(POINTER_ACCESS_MARKER).First() :
                 expression;
@@ -153,10 +152,7 @@ namespace Prometheus.Services.Service {
                     expression = expression.Substring(0, pointerIndex);
                     type = _typeService.GetType(expression, operation);
                 }
-
-                result.Type = type;
-                result.SnapshotVariable = GetSnapshotName(expression);
-                result.Variable = expression;
+                var result = new VariableSnapshot(type, GetSnapshotName(expression), expression);
                 return result;
             }
 
