@@ -153,25 +153,23 @@ namespace Prometheus.Services {
             var builder = new StringBuilder();
             int index = _dataStructure.Structures.Max(x => x.EndIndex);
 
-            var getFlagFormat = "static inline uint64_t GETFLAG({0}* ptr) {{" +
+            var getFlag = "static inline uint64_t GETFLAG(void* ptr) {{" +
                                 Environment.NewLine +
-                                "      return ((uint64_t)ptr) & 8; " +
+                                "      return ((uint64_t)ptr) & 8;" +
                                 Environment.NewLine +
                                 "}}";
-            var setFlagFormat = "static inline uint64_t FLAG({0}* ptr, uint64_t flag) {{" +
+            var setFlag = "static inline struct {0} * FLAG(void* ptr, uint64_t flag) {{" +
                                 Environment.NewLine +
-                                "      return ((uint64_t)ptr) & flag; " +
+                                "      return (struct {0} *)(((uint64_t)ptr) & flag);" +
                                 Environment.NewLine +
                                 "}}";
 
-            foreach (var structure in _dataStructure.Structures)
-            {
-                builder.AppendLine(string.Format(setFlagFormat, structure.Name));
-            }
+            builder.AppendLine(getFlag);
+            builder.AppendLine();
 
             foreach (var structure in _dataStructure.Structures)
             {
-                builder.AppendLine(string.Format(getFlagFormat, structure.Name));
+                builder.AppendLine(string.Format(setFlag, structure.Name));
             }
 
             _updateTable.Add(new InsertionDeclaration(index, builder.ToString()));
