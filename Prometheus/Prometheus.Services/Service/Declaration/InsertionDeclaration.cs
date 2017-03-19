@@ -39,6 +39,5 @@ namespace Prometheus.Services.Service
 
             return builder.ToString();
         }
-
     }
 }

@@ -152,12 +152,7 @@ namespace Prometheus.Services.Model
                 return result;
 
             if (statement.IfStatements.IsNullOrEmpty() && statement.ElseStatements.IsNullOrEmpty()) {
-                result.Add(new SelectionRegion
-                {
-                    StartStatementIndex = statement.StartIndex,
-                    StartBodyIndex = statement.Context.statement()[0].GetStartIndex(),
-                    EndBodyIndex = statement.EndIndex
-                });
+                result.Add(new SelectionRegion(statement.StartIndex, statement.Context.statement()[0].GetStartIndex(), statement.EndIndex));
 
                 return result;
             }
@@ -170,37 +165,17 @@ namespace Prometheus.Services.Model
 
             if (regions.Count > 0)
             {
-                result.Add(new SelectionRegion
-                {
-                    StartStatementIndex = statement.StartIndex,
-                    StartBodyIndex = statement.Context.statement()[0].compoundStatement().GetStartIndex(),
-                    EndBodyIndex = regions[0].StartStatementIndex
-                });
-
-                result.Add(new SelectionRegion
-                {
-                    StartStatementIndex = -1,
-                    StartBodyIndex = regions.Last().EndBodyIndex,
-                    EndBodyIndex = statement.EndIndex
-                });
-
+                result.Add(new SelectionRegion(statement.StartIndex, statement.Context.statement()[0].compoundStatement().GetStartIndex(), regions[0].StartStatementIndex));
+                result.Add(new SelectionRegion(-1, regions.Last().EndBodyIndex, statement.EndIndex));
                 result.AddRange(regions);
 
                 for (int i = 1; i < statement.IfStatements.Count; i++) {
-                    result.Add(new SelectionRegion {
-                        StartStatementIndex = -1,
-                        StartBodyIndex = statement.IfStatements[i - 1].EndIndex,
-                        EndBodyIndex = statement.IfStatements[i].StartIndex
-                    });
+                    result.Add(new SelectionRegion(-1, statement.IfStatements[i - 1].EndIndex, statement.IfStatements[i].StartIndex));
                 }
             }
             else
             {
-                result.Add(new SelectionRegion {
-                    StartStatementIndex = statement.StartIndex,
-                    StartBodyIndex = statement.Context.statement()[0].compoundStatement().GetStartIndex(),
-                    EndBodyIndex = statement.Context.statement()[0].compoundStatement().GetStopIndex()
-                });
+                result.Add(new SelectionRegion(statement.StartIndex, statement.Context.statement()[0].compoundStatement().GetStartIndex(), statement.Context.statement()[0].compoundStatement().GetStopIndex()));
             }
 
             result.AddRange(statement.ElseStatements.SelectMany(GetSelectionRegions));
@@ -216,11 +191,7 @@ namespace Prometheus.Services.Model
                 return result;
 
             if (statement.IfStatements.IsNullOrEmpty()) {
-                result.Add(new SelectionRegion {
-                    StartStatementIndex = statement.StartIndex,
-                    StartBodyIndex = statement.Context.GetStartIndex(),
-                    EndBodyIndex = statement.EndIndex
-                });
+                result.Add(new SelectionRegion(statement.StartIndex, statement.Context.GetStartIndex(), statement.EndIndex));
 
                 return result;
             }
@@ -232,35 +203,17 @@ namespace Prometheus.Services.Model
                 .ToList();
 
             if (regions.Count > 0) {
-                result.Add(new SelectionRegion {
-                    StartStatementIndex = statement.StartIndex,
-                    StartBodyIndex = statement.Context.GetStartIndex(),
-                    EndBodyIndex = regions[0].StartStatementIndex
-                });
-
-                result.Add(new SelectionRegion {
-                    StartStatementIndex = -1,
-                    StartBodyIndex = regions.Last().EndBodyIndex,
-                    EndBodyIndex = statement.EndIndex
-                });
-
+                result.Add(new SelectionRegion(statement.StartIndex, statement.Context.GetStartIndex(), regions[0].StartStatementIndex));
+                result.Add(new SelectionRegion(-1, regions.Last().EndBodyIndex, statement.EndIndex));
                 result.AddRange(regions);
 
                 for (int i = 1; i < statement.IfStatements.Count; i++) {
-                    result.Add(new SelectionRegion {
-                        StartStatementIndex = -1,
-                        StartBodyIndex = statement.IfStatements[i - 1].EndIndex,
-                        EndBodyIndex = statement.IfStatements[i].StartIndex
-                    });
+                    result.Add(new SelectionRegion(-1, statement.IfStatements[i - 1].EndIndex, statement.IfStatements[i].StartIndex));
                 }
             }
             else
             {
-                result.Add(new SelectionRegion {
-                    StartStatementIndex = statement.StartIndex,
-                    StartBodyIndex = statement.Context.GetStartIndex(),
-                    EndBodyIndex = statement.EndIndex
-                });
+                result.Add(new SelectionRegion (statement.StartIndex, statement.Context.GetStartIndex(), statement.EndIndex));
             }
 
             return result;
@@ -287,9 +240,16 @@ namespace Prometheus.Services.Model
 
         private class SelectionRegion
         {
+            private readonly Interval _bodyInterval;
+
             public int StartStatementIndex { get; set; }
-            public int StartBodyIndex { get; set; }
-            public int EndBodyIndex { get; set; }
+            public int StartBodyIndex => _bodyInterval.Start;
+            public int EndBodyIndex => _bodyInterval.End;
+
+            public SelectionRegion(int startStatement, int startBody, int endBody) {
+                _bodyInterval = new Interval(startBody, endBody);
+                StartStatementIndex = startStatement;
+            }
         }
 
         private class MethodRegion

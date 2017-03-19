@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using Prometheus.Services.Extensions;
 using Prometheus.Services.Model;
 
 namespace Prometheus.Services.UnitTests
@@ -29,7 +30,7 @@ namespace Prometheus.Services.UnitTests
 
             foreach (var operationRegion in operationRegions)
             {
-                //Assert.AreEqual(operationRegion.Value, codeVisitor.DataStructure.OperationInternalCodes[operationRegion.Key].Count);
+                //Assert.AreEqual(operationRegion.Value, codeVisitor.DataStructure.GetValue("_methodInternalCodes").Invoke(operationRegion.Key).Count);
             }
         }
 

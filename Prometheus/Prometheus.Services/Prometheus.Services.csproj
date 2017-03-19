@@ -54,6 +54,7 @@
     <Compile Include="Extensions\RuleContextExtensions.cs" />
     <Compile Include="Model\Field.cs" />
     <Compile Include="Model\IfStatement.cs" />
+    <Compile Include="Extensions\ReflectionExtensions.cs" />
     <Compile Include="Model\Structure.cs" />
     <Compile Include="Model\Variable.cs" />
     <Compile Include="Model\Method.cs" />

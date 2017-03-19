@@ -49,9 +49,9 @@ namespace Prometheus.Services {
 
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context)
         {
-            var relations = new List<RelationalExpression>();
             List<RelationalExpression> conditionRelations = _relationService.GetConditionRelations(context);
             List<RelationalExpression> assignmentRelations = _relationService.GetAssignmentRelations(context);
+            var relations = new List<RelationalExpression>();
             relations.AddRange(conditionRelations);
             relations.AddRange(assignmentRelations);
 
@@ -117,11 +117,9 @@ namespace Prometheus.Services {
                 }
             }
 
-            insertionIndex = body.Substring(0, insertionIndex - bodyContext.GetStartIndex()).InvariantLastIndexOf(Environment.NewLine) + bodyContext.GetStartIndex() + 2;
-            var offset = body.Substring(insertionIndex - bodyContext.GetStartIndex())
-                .Select((var, ix) => new { Character = var, Index = ix })
-                .First(x => char.IsWhiteSpace(x.Character))
-                .Index;
+            string trimmedBody = body.Substring(0, insertionIndex - bodyContext.GetStartIndex());
+            insertionIndex = trimmedBody.InvariantLastIndexOf(Environment.NewLine) + bodyContext.GetStartIndex() + 2;
+            int offset = trimmedBody.Length - trimmedBody.InvariantLastIndexOf(Environment.NewLine) - 2;
 
             _updateTable.Add(new InsertionDeclaration(insertionIndex, new string(' ', offset) + "while (true) {"));
             _updateTable.Add(new InsertionDeclaration(context.GetStopIndex() - 1, "}"));
@@ -237,24 +235,15 @@ namespace Prometheus.Services {
                 return new List<IDeclaration>();
 
             var result = new List<IDeclaration>();
-            var builder = new StringBuilder();
             var method = relations[0].Method;
 
             foreach (var relation in relations)
             {
                 var startIndex = relation.LeftOperandInterval.Start;
                 var endIndex = relation.RightOperandInterval.End;
+                var casConditions = GetCasCondition(relation, _dataStructure.GetRegionCode(method, startIndex));
 
-                if (relation.RightOperandSnapshot != null && relation.RightOperand != NULL_TOKEN)
-                {
-                    builder.AppendLine(GetCasCondition(relation.RightOperandSnapshot,
-                        _dataStructure.GetRegionCode(method, startIndex)));
-                }
-
-                builder.AppendLine(GetCasCondition(relation.LeftOperandSnapshot,
-                    _dataStructure.GetRegionCode(method, startIndex)));
-
-                result.Add(new ReplacementDeclaration(startIndex, endIndex + 1, builder.ToString()));
+                result.Add(new ReplacementDeclaration(startIndex, endIndex + 1, casConditions));
             }
 
             return result;
@@ -286,10 +275,27 @@ namespace Prometheus.Services {
             return null;
         }
 
-        private static string GetCasCondition(VariableSnapshot snapshot, int regionCode) {
-            var checkAndMarkCondition = $"if(!CAS({snapshot.Variable}, {snapshot.SnapshotVariable}, FLAG({snapshot.SnapshotVariable}, {regionCode})) {{ HELP HERE; continue; }}";
+        private static string GetCasCondition(RelationalExpression relation, int regionCode) {
+            var casConditionFormat = "if(!CAS({0}, {1}, FLAG({2}, {3})) {{ HELP HERE; continue; }}";
+            var result = string.Empty;
 
-            return checkAndMarkCondition;
+            if (relation.RightOperand == NULL_TOKEN)
+            {
+                var snapshot = relation.LeftOperandSnapshot;
+                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode);
+            } else if (relation.RightOperandSnapshot == null)
+            {
+                // The assigned variable is not linked to the global state
+                var snapshot = relation.LeftOperandSnapshot;
+                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode);
+            } else
+            {
+                // The assigned variable is linked to the global state
+                var snapshot = relation.RightOperandSnapshot;
+                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, snapshot.SnapshotVariable, regionCode);
+            }
+
+            return result;
         }
 
         private static string GetVariablesSnapshot(List<RelationalExpression> relations) {
