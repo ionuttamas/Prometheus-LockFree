@@ -236,6 +236,39 @@ namespace Prometheus.Services.UnitTests
                                                "oldVariable = variable;",
                                                 });
                 #endregion
+
+                #region Fourth case
+                yield return new TestCaseData(@"
+                                                struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+                                                struct node * tail = NULL;
+
+                                                void enqueue(int data) {
+                                                    struct node* temp = (struct node*)malloc(sizeof(struct node));
+
+                                                    temp->data = data;
+                                                    temp->next = NULL;
+
+                                                    if (head == NULL) {
+                                                        tail = temp;
+                                                        return;
+                                                    }
+                                                    else {
+                                                        head = head->next;
+                                                        tail = tail->next;
+                                                    }
+
+                                                    tail = head;
+                                                }",
+                                                new[] {
+                                                   "struct node * oldHead = head;",
+                                                   "struct node * oldTail = tail;"
+                                                });
+                #endregion
             }
         }
 
@@ -354,11 +387,10 @@ namespace Prometheus.Services.UnitTests
 
                                                     tail->next = temp;
                                                     tail = temp;
-                                                }
-                                                ",
+                                                }",
                                                 new[] {
-                                               "struct node * oldHead = head;",
-                                               "struct node * oldTail = tail;",
+                                                   "struct node * oldHead = head;",
+                                                   "struct node * oldTail = tail;"
                                                 });
                 #endregion
 
@@ -383,17 +415,17 @@ namespace Prometheus.Services.UnitTests
                                                     int result = temp->data;
 
                                                     if(head == tail) {
-                                                        head = tail = NULL;
+                                                        head = NULL;
+                                                        tail = NULL;
                                                         return result;
                                                     }
 
                                                     head = head->next;
                                                     return result;
-                                                }
-                                                ",
+                                                }",
                                                 new[] {
-                                               "struct node * oldHead = head;",
-                                               "struct node * oldTail = tail;",
+                                                   "struct node * oldHead = head;",
+                                                   "struct node * oldTail = tail;"
                                                 });
                 #endregion
             }
