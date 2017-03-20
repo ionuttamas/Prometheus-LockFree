@@ -52,7 +52,6 @@ namespace Prometheus.Services.Service {
              * }
              * every assign expression will be extracted => we need to treat assign1/2 + assign3 separately
              */
-
             string functionName = context
                 .GetFunction()
                 .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()

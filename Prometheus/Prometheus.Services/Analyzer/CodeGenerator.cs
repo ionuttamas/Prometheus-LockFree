@@ -51,6 +51,12 @@ namespace Prometheus.Services {
         {
             List<RelationalExpression> conditionRelations = _relationService.GetConditionRelations(context);
             List<RelationalExpression> assignmentRelations = _relationService.GetAssignmentRelations(context);
+            //todo: this check needs to be more robust - take all the null checks and see if they are actually used
+            List<string> nullCheckOperands = conditionRelations
+                .Where(x => x.RightOperand == NULL_TOKEN)
+                .Select(x => x.LeftOperand)
+                .ToList();
+            assignmentRelations.RemoveAll(x => nullCheckOperands.Contains(x.LeftOperand));
             var relations = new List<RelationalExpression>();
             relations.AddRange(conditionRelations);
             relations.AddRange(assignmentRelations);
