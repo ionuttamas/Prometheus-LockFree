@@ -49,17 +49,23 @@ namespace Prometheus.Services.Extensions {
             return result;
         }
 
-        public static List<RuleContext> GetDescendants(this RuleContext context, Func<RuleContext, bool> filter) {
-            var result = new List<RuleContext>();
+        public static List<T> GetDescendants<T>(this RuleContext context, Func<RuleContext, bool> filter=null)
+            where T : RuleContext
+        {
+            var result = new List<T>();
+
+            if (filter == null) {
+                filter = x => x is T;
+            }
 
             if (filter(context)) {
-                result.Add(context);
+                result.Add((T)context);
             }
 
             for (int i = 0; i < context.ChildCount; i++) {
                 if (context.GetChild(i) is RuleContext) {
                     RuleContext ruleContext = (RuleContext)context.GetChild(i);
-                    List<RuleContext> decendants = ruleContext.GetDescendants(filter);
+                    List<T> decendants = ruleContext.GetDescendants<T>(filter);
 
                     if (decendants != null)
                         result.AddRange(decendants);
@@ -140,9 +146,9 @@ namespace Prometheus.Services.Extensions {
                 filter = x => x is T;
             }
 
-            var result = context.GetDescendants(filter)[0];
+            var result = context.GetDescendants<T>(filter)[0];
 
-            return (T)result;
+            return result;
         }
 
         public static T GetDirectDescendant<T>(this RuleContext context, Func<RuleContext, bool> filter = null)

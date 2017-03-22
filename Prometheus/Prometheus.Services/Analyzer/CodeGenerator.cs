@@ -12,7 +12,8 @@ using Prometheus.Services.Parser;
 using Prometheus.Services.Service;
 
 namespace Prometheus.Services {
-    public class CodeGenerator : CodeVisitor {
+    public class CodeGenerator : CodeVisitor
+    {
         private const string NULL_TOKEN = "NULL";
         private const string POINTER_ACCESS_MARKER = "->";
         private const string SNAPSHOT_NAME_MARKER = "old";
@@ -24,7 +25,8 @@ namespace Prometheus.Services {
 
         public string CodeOutput { get; private set; }
 
-        public CodeGenerator(DataStructure dataStructure, RelationService relationService) {
+        public CodeGenerator(DataStructure dataStructure, RelationService relationService)
+        {
             _dataStructure = dataStructure;
             _relationService = relationService;
             _updateTable = new CodeUpdateTable();
@@ -53,17 +55,21 @@ namespace Prometheus.Services {
             List<RelationalExpression> assignmentRelations = _relationService.GetAssignmentRelations(context);
             //todo: this check needs to be more robust - take all the null checks and see if they are actually used
             List<string> nullCheckOperands = conditionRelations
-                .Where(x => x.RightOperand == NULL_TOKEN)
-                .Select(x => x.LeftOperand)
+                .Select(x => x.RightOperand == NULL_TOKEN ? x.LeftOperand : (x.LeftOperand == NULL_TOKEN ? x.RightOperand : null))
+                .Where(x => x != null)
                 .ToList();
-            assignmentRelations.RemoveAll(x => nullCheckOperands.Contains(x.LeftOperand));
+            //todo: this is not right: tail = head->next; if a check is made for head
+            assignmentRelations
+                .RemoveAll(x => nullCheckOperands.Any(op => x.LeftOperand.ContainsInvariant($"{op}{POINTER_ACCESS_MARKER}") ||
+                                                            x.RightOperand.ContainsInvariant($"{op}{POINTER_ACCESS_MARKER}")));
             var relations = new List<RelationalExpression>();
             relations.AddRange(conditionRelations);
             relations.AddRange(assignmentRelations);
 
             string variablesSnapshot = GetVariablesSnapshot(relations);
             string snapshotFlagCheck = GetSnapshotsFlagCheckExpression(relations);
-            InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(context.GetStartIndex(), $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}");
+            InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(context.GetStartIndex(),
+                $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}");
             List<IDeclaration> conditionReplacements = GetConditionReplacements(conditionRelations);
             List<IDeclaration> assignmentReplacements = GetAssignmentsReplacements(assignmentRelations);
 
@@ -74,17 +80,20 @@ namespace Prometheus.Services {
             return base.VisitSelectionStatement(context);
         }
 
-        protected override void PreVisit(IParseTree tree, string input) {
+        protected override void PreVisit(IParseTree tree, string input)
+        {
         }
 
-        protected override void PostVisit(IParseTree tree, string input) {
+        protected override void PostVisit(IParseTree tree, string input)
+        {
             CodeOutput = _updateTable.ApplyUpdates(input);
         }
 
         /// <summary>
         /// Adds the "while loop for this method.
         /// </summary>
-        private void AddWhileLoop(CLanguageParser.FunctionDefinitionContext context) {
+        private void AddWhileLoop(CLanguageParser.FunctionDefinitionContext context)
+        {
             int insertionIndex = int.MaxValue;
             string operationName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
 
@@ -94,10 +103,11 @@ namespace Prometheus.Services {
                 .ToList();
             var variable = localVariables
                 .Skip(1) //todo:why??
-                .Select((var, ix) => new { Variable = var, Index = ix })
+                .Select((var, ix) => new {Variable = var, Index = ix})
                 .FirstOrDefault(x => x.Variable.LinksToGlobalState);
 
-            if (variable != null) {
+            if (variable != null)
+            {
                 insertionIndex = localVariables[variable.Index].Index;
             }
 
@@ -114,11 +124,13 @@ namespace Prometheus.Services {
             Method method = _dataStructure[operationName];
 
             // If the local or global variable is embedded in an "if" statement, we will embed the "if" statement in the "while" loop as well
-            if (method.IfStatements.Any()) {
+            if (method.IfStatements.Any())
+            {
                 var index = insertionIndex;
                 var surroundingIfStatements = method.IfStatements.Where(x => x.Context.ContainsIndex(index));
 
-                if (surroundingIfStatements.Any()) {
+                if (surroundingIfStatements.Any())
+                {
                     insertionIndex = Math.Min(insertionIndex, surroundingIfStatements.Min(x => x.StartIndex));
                 }
             }
@@ -134,8 +146,10 @@ namespace Prometheus.Services {
         /// <summary>
         /// Add "expected" field to each pointer-based structure.
         /// </summary>
-        private void AugmentStructures() {
-            foreach (var structure in _dataStructure.Structures) {
+        private void AugmentStructures()
+        {
+            foreach (var structure in _dataStructure.Structures)
+            {
                 int structInsertIndex = structure.Context.structDeclarationList().GetStartIndex();
                 string value = $"struct {structure.Name} * expected;";
                 _updateTable.Add(new InsertionDeclaration(structInsertIndex, value));
@@ -158,15 +172,15 @@ namespace Prometheus.Services {
             int index = _dataStructure.Structures.Max(x => x.EndIndex);
 
             var getFlag = "static inline uint64_t GETFLAG(void* ptr) {{" +
-                                Environment.NewLine +
-                                "      return ((uint64_t)ptr) & 8;" +
-                                Environment.NewLine +
-                                "}}";
+                          Environment.NewLine +
+                          "      return ((uint64_t)ptr) & 8;" +
+                          Environment.NewLine +
+                          "}}";
             var setFlag = "static inline struct {0} * FLAG(void* ptr, uint64_t flag) {{" +
-                                Environment.NewLine +
-                                "      return (struct {0} *)(((uint64_t)ptr) & flag);" +
-                                Environment.NewLine +
-                                "}}";
+                          Environment.NewLine +
+                          "      return (struct {0} *)(((uint64_t)ptr) & flag);" +
+                          Environment.NewLine +
+                          "}}";
 
             builder.AppendLine(getFlag);
             builder.AppendLine();
@@ -182,7 +196,8 @@ namespace Prometheus.Services {
         /// <summary>
         /// Add helper methods for each pointer-based structure.
         /// </summary>
-        private void AddHelperMethods() {
+        private void AddHelperMethods()
+        {
             int helperMethodsIndex = _dataStructure.Structures.Max(x => x.EndIndex);
             string helperMethods = string.Join(Environment.NewLine, _dataStructure.Structures.Select(GetHelpMethod));
             _updateTable.Add(new InsertionDeclaration(helperMethodsIndex, helperMethods));
@@ -191,20 +206,22 @@ namespace Prometheus.Services {
         /// <summary>
         /// Gets the helper method for the given structure type.
         /// </summary>
-        private static string GetHelpMethod(Structure structure) {
+        private static string GetHelpMethod(Structure structure)
+        {
             var argument = "value";
             //We just assign the expected argument to the current argument;
             //The method that manages to set the "operation" field on the argument via CAS instruction is the "owner" of the argument modification
             var functionDeclaration = $"void Help({structure.Name} * {argument}){{"
-                                        + Environment.NewLine +
-                                            $"{argument} = {argument}.expected;"
-                                        + Environment.NewLine +
+                                      + Environment.NewLine +
+                                      $"{argument} = {argument}.expected;"
+                                      + Environment.NewLine +
                                       $"}}";
 
             return functionDeclaration;
         }
 
-        private static string GetSnapshotsFlagCheckExpression(List<RelationalExpression> relations) {
+        private static string GetSnapshotsFlagCheckExpression(List<RelationalExpression> relations)
+        {
             var snapshotVariables = relations
                 .SelectMany(x => new List<VariableSnapshot> {x.LeftOperandSnapshot, x.RightOperandSnapshot})
                 .Where(x => x != null)
@@ -216,19 +233,21 @@ namespace Prometheus.Services {
             return checkExpression;
         }
 
-        private List<IDeclaration> GetConditionReplacements(List<RelationalExpression> relations) {
+        private List<IDeclaration> GetConditionReplacements(List<RelationalExpression> relations)
+        {
             var result = new List<IDeclaration>();
 
-            foreach (var relation in relations) {
+            foreach (var relation in relations)
+            {
                 //todo: treat the null check case separately
                 var leftOperandReplacement = GetReplacementDeclaration(relation.LeftOperand, relation.LeftOperandInterval, relation.Method);
 
-                if(leftOperandReplacement!=null)
+                if (leftOperandReplacement != null)
                     result.Add(leftOperandReplacement);
 
                 var rightOperandReplacement = GetReplacementDeclaration(relation.RightOperand, relation.RightOperandInterval, relation.Method);
 
-                if(rightOperandReplacement != null)
+                if (rightOperandReplacement != null)
                     result.Add(rightOperandReplacement);
             }
 
@@ -255,14 +274,16 @@ namespace Prometheus.Services {
             return result;
         }
 
-        private IDeclaration GetReplacementDeclaration(string expression, Interval interval, string method) {
+        private IDeclaration GetReplacementDeclaration(string expression, Interval interval, string method)
+        {
             int offset = 0;
             string declaration;
-            string variable = expression.Contains(POINTER_ACCESS_MARKER) ?
-                expression.Split(POINTER_ACCESS_MARKER).First() :
-                expression;
+            string variable = expression.Contains(POINTER_ACCESS_MARKER)
+                ? expression.Split(POINTER_ACCESS_MARKER).First()
+                : expression;
 
-            if (_dataStructure.HasGlobalVariable(variable) || (_dataStructure[method][variable] != null && _dataStructure[method][variable].LinksToGlobalState)) {
+            if (_dataStructure.HasGlobalVariable(variable) || (_dataStructure[method][variable] != null && _dataStructure[method][variable].LinksToGlobalState))
+            {
                 if (!expression.ContainsInvariant(POINTER_ACCESS_MARKER))
                 {
                     declaration = $"{SNAPSHOT_NAME_MARKER}{string.Join("", expression.Split(POINTER_ACCESS_MARKER).Select(x => x.Capitalize()))}";
@@ -281,7 +302,8 @@ namespace Prometheus.Services {
             return null;
         }
 
-        private static string GetCasCondition(RelationalExpression relation, int regionCode) {
+        private static string GetCasCondition(RelationalExpression relation, int regionCode)
+        {
             var casConditionFormat = "if(!CAS({0}, {1}, FLAG({2}, {3})) {{ HELP HERE; continue; }}";
             var result = string.Empty;
 
@@ -289,12 +311,14 @@ namespace Prometheus.Services {
             {
                 var snapshot = relation.LeftOperandSnapshot;
                 result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode);
-            } else if (relation.RightOperandSnapshot == null)
+            }
+            else if (relation.RightOperandSnapshot == null)
             {
                 // The assigned variable is not linked to the global state
                 var snapshot = relation.LeftOperandSnapshot;
                 result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode);
-            } else
+            }
+            else
             {
                 // The assigned variable is linked to the global state
                 var snapshot = relation.RightOperandSnapshot;
@@ -304,25 +328,28 @@ namespace Prometheus.Services {
             return result;
         }
 
-        private static string GetVariablesSnapshot(List<RelationalExpression> relations) {
-            var builder = new StringBuilder();
+        private static string GetVariablesSnapshot(List<RelationalExpression> relations)
+        {
+            var result = string.Empty;
 
-            foreach (var relation in relations.Distinct(x => x.LeftOperand)) {
-                if (relation.LeftOperandSnapshot != null) {
-                    builder.AppendLine(relation.LeftOperandSnapshot + ";");
+            foreach (var relation in relations.Distinct(x => x.LeftOperand).Where(x => x.LeftOperandSnapshot != null))
+            {
+                result += $"{relation.LeftOperandSnapshot};{Environment.NewLine}";
+            }
+
+            foreach (var relation in relations.Distinct(x => x.RightOperand).Where(x => x.RightOperandSnapshot != null))
+            {
+                if (!result.Contains(relation.RightOperandSnapshot.ToString()))
+                {
+                    result += $"{relation.RightOperandSnapshot};{Environment.NewLine}";
                 }
             }
 
-            foreach (var relation in relations.Distinct(x => x.RightOperand)) {
-                if (relation.RightOperandSnapshot != null) {
-                    builder.AppendLine(relation.RightOperandSnapshot + ";");
-                }
-            }
-
-            return builder.ToString();
+            return result;
         }
 
-        private class CodeUpdateTable {
+        private class CodeUpdateTable
+        {
             private readonly List<IDeclaration> _declarations;
 
             public CodeUpdateTable()
@@ -337,7 +364,7 @@ namespace Prometheus.Services {
 
             public string ApplyUpdates(string text)
             {
-                foreach (var declaration in _declarations.OrderByDescending(x=>x.Index))
+                foreach (var declaration in _declarations.OrderByDescending(x => x.Index))
                 {
                     text = declaration.ApplyOn(text);
                 }

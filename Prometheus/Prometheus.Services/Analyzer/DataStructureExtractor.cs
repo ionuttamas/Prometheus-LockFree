@@ -44,10 +44,11 @@ namespace Prometheus.Services
             return base.VisitFunctionDefinition(context);
         }
 
+        //todo: redesign nested if statements - currently are not supported
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context) {
             var assignments = context
                 .GetFirstDescendant<CLanguageParser.CompoundStatementContext>()
-                .GetFirstLevelDescendants<CLanguageParser.AssignmentExpressionContext>()
+                .GetDescendants<CLanguageParser.AssignmentExpressionContext>()
                 .Where(x => x.ChildCount > 1)
                 .ToList();
             var functionName = context
@@ -83,7 +84,7 @@ namespace Prometheus.Services
                     .GetDirectDescendant<CLanguageParser.PrimaryExpressionContext>();
                 List<string> dependentTokens = context
                     .assignmentExpression()
-                    .GetDescendants(x => x is CLanguageParser.PrimaryExpressionContext)
+                    .GetDescendants<CLanguageParser.PrimaryExpressionContext>()
                     .Select(x => ((CLanguageParser.PrimaryExpressionContext)x).GetName())
                     .ToList();
                 string variableName = operand.GetName();
@@ -129,7 +130,7 @@ namespace Prometheus.Services
                     dependentTokens = context
                         .Parent
                         .Parent
-                        .GetDescendants(x => x is CLanguageParser.PrimaryExpressionContext)
+                        .GetDescendants<CLanguageParser.PrimaryExpressionContext>()
                         .Select(x => ((CLanguageParser.PrimaryExpressionContext) x).GetName())
                         .ToList();
                 }

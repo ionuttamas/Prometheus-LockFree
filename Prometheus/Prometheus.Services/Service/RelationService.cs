@@ -42,29 +42,17 @@ namespace Prometheus.Services.Service {
         }
 
         public List<RelationalExpression> GetAssignmentRelations(CLanguageParser.SelectionStatementContext context) {
-            /* TODO:
-             * Currently, if we have
-             * if(condition) {
-             *    assign1;
-             *    assign2;
-             *    if(condition2) {...}
-             *    assign3;
-             * }
-             * every assign expression will be extracted => we need to treat assign1/2 + assign3 separately
-             */
+            // TODO: partial functionality
             string functionName = context
                 .GetFunction()
                 .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
                 .GetName();
             IfStatement ifStatement = _dataStructure[functionName]
                 .IfStatements
-                .First(x => x.StartIndex == context.Start.StartIndex);
-            IfStatement firstInnerIfStatement = ifStatement
-                .IfStatements
-                .MinItem(x => x.StartIndex);
+                .First(x => x.StartIndex == context.GetStartIndex());
             List<RelationalExpression> expressions = ifStatement
                 .Assignments
-                .Where(x => firstInnerIfStatement == null || firstInnerIfStatement.StartIndex > x.Start.StartIndex)
+                .Concat(ifStatement.ElseStatements.SelectMany(x=>x.Assignments))
                 .Select(GetRelationalExpression)
                 .ToList();
 
