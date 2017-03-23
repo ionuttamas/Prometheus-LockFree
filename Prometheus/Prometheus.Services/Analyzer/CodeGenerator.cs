@@ -44,11 +44,40 @@ namespace Prometheus.Services {
 
         public override object VisitFunctionDefinition(CLanguageParser.FunctionDefinitionContext context)
         {
-            AddWhileLoop(context);
+            var index = AddWhileLoop(context);
+            ProcessAssignments(context, index);
 
             return base.VisitFunctionDefinition(context);
         }
 
+        private void ProcessAssignments(CLanguageParser.FunctionDefinitionContext context, int index)
+        {
+            List<RelationalExpression> conditionRelations = _relationService.GetConditionRelations(context);
+            List<RelationalExpression> assignmentRelations = _relationService.GetAssignmentRelations(context);
+            List<string> nullCheckOperands = conditionRelations
+                .Select(x => x.RightOperand == NULL_TOKEN ? x.LeftOperand : (x.LeftOperand == NULL_TOKEN ? x.RightOperand : null))
+                .Where(x => x != null)
+                .ToList();
+            //todo: this is not right: tail = head->next; if a check is made for head
+            assignmentRelations
+                .RemoveAll(x => nullCheckOperands.Any(op => x.LeftOperand.ContainsInvariant($"{op}{POINTER_ACCESS_MARKER}") ||
+                                                            x.RightOperand.ContainsInvariant($"{op}{POINTER_ACCESS_MARKER}")));
+            var relations = new List<RelationalExpression>();
+            relations.AddRange(conditionRelations);
+            relations.AddRange(assignmentRelations);
+
+            string variablesSnapshot = GetVariablesSnapshot(relations);
+            string snapshotFlagCheck = GetSnapshotsFlagCheckExpression(relations);
+            InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(index, $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}");
+            List<IDeclaration> conditionReplacements = GetConditionReplacements(conditionRelations);
+            List<IDeclaration> assignmentReplacements = GetAssignmentsReplacements(assignmentRelations);
+
+            _updateTable.Add(snapshotAndCheckInsertion);
+            conditionReplacements.ForEach(_updateTable.Add);
+            assignmentReplacements.ForEach(_updateTable.Add);
+        }
+
+        /*//todo: we should extract all assignments not only those per selection statement
         public override object VisitSelectionStatement(CLanguageParser.SelectionStatementContext context)
         {
             List<RelationalExpression> conditionRelations = _relationService.GetConditionRelations(context);
@@ -79,7 +108,7 @@ namespace Prometheus.Services {
 
             return base.VisitSelectionStatement(context);
         }
-
+*/
         protected override void PreVisit(IParseTree tree, string input)
         {
         }
@@ -90,9 +119,9 @@ namespace Prometheus.Services {
         }
 
         /// <summary>
-        /// Adds the "while loop for this method.
+        /// Adds the "while loop for this method and returns the "while" loop insertion index.
         /// </summary>
-        private void AddWhileLoop(CLanguageParser.FunctionDefinitionContext context)
+        private int AddWhileLoop(CLanguageParser.FunctionDefinitionContext context)
         {
             int insertionIndex = int.MaxValue;
             string operationName = context.GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
@@ -141,6 +170,8 @@ namespace Prometheus.Services {
 
             _updateTable.Add(new InsertionDeclaration(insertionIndex, new string(' ', offset) + "while (true) {"));
             _updateTable.Add(new InsertionDeclaration(context.GetStopIndex() - 1, "}"));
+
+            return insertionIndex;
         }
 
         /// <summary>

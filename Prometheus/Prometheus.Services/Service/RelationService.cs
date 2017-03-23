@@ -30,6 +30,17 @@ namespace Prometheus.Services.Service {
             };
         }
 
+        public List<RelationalExpression> GetConditionRelations(CLanguageParser.FunctionDefinitionContext context) {
+            var tre = context
+                .GetDescendants<CLanguageParser.SelectionStatementContext>().ToList();
+            var relations = tre
+                .SelectMany(x => x.expression().GetDescendants<CLanguageParser.EqualityExpressionContext>())
+                .Select(GetRelationalExpression)
+                .ToList();
+
+            return relations;
+        }
+
         public List<RelationalExpression> GetConditionRelations(CLanguageParser.SelectionStatementContext context) {
             List<RelationalExpression> relationalExpressions = context
                 .expression()
@@ -39,6 +50,15 @@ namespace Prometheus.Services.Service {
                 .ToList();
 
             return relationalExpressions;
+        }
+
+        public List<RelationalExpression> GetAssignmentRelations(CLanguageParser.FunctionDefinitionContext context) {
+            var relations = context
+                .GetDescendants<CLanguageParser.AssignmentExpressionContext>()
+                .Select(GetRelationalExpression)
+                .ToList();
+
+            return relations;
         }
 
         public List<RelationalExpression> GetAssignmentRelations(CLanguageParser.SelectionStatementContext context) {
