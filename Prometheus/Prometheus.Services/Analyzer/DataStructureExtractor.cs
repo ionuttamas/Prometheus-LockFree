@@ -187,7 +187,7 @@ namespace Prometheus.Services
         private static Structure GetStructureType(CLanguageParser.StructDeclarationListContext context)
         {
             var declarations = context
-                .GetLeafDescendants(x => x is CLanguageParser.StructDeclarationContext)
+                .GetLeafDescendants<CLanguageParser.StructDeclarationContext>()
                 .Select(x=>(CLanguageParser.StructDeclarationContext)x);
             var specifierContext = context.GetAncestor<CLanguageParser.StructOrUnionSpecifierContext>();
             var structure = new Structure(specifierContext.GetChild(1).GetText()) {

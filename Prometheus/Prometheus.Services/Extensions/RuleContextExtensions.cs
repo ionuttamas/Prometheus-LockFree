@@ -75,13 +75,18 @@ namespace Prometheus.Services.Extensions {
             return result;
         }
 
-        public static List<RuleContext> GetLeafDescendants(this RuleContext context, Func<RuleContext, bool> filter)
+        public static List<RuleContext> GetLeafDescendants<T>(this RuleContext context, Func<RuleContext, bool> filter = null)
+             where T : RuleContext
         {
+            if (filter == null) {
+                filter = x => x is T;
+            }
+
             var descendants = Enumerable
                 .Range(0, context.ChildCount)
                 .Select(context.GetChild)
                 .OfType<RuleContext>()
-                .SelectMany(x => x.GetLeafDescendants(filter))
+                .SelectMany(x => x.GetLeafDescendants<T>(filter))
                 .ToList();
 
             if (filter(context) && !descendants.Any())

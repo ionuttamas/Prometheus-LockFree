@@ -31,10 +31,10 @@ namespace Prometheus.Services.Service {
         }
 
         public List<RelationalExpression> GetConditionRelations(CLanguageParser.FunctionDefinitionContext context) {
-            var tre = context
-                .GetDescendants<CLanguageParser.SelectionStatementContext>().ToList();
-            var relations = tre
-                .SelectMany(x => x.expression().GetDescendants<CLanguageParser.EqualityExpressionContext>())
+            var relations = context
+                .GetDescendants<CLanguageParser.SelectionStatementContext>()
+                .SelectMany(x => x.expression().GetLeafDescendants<CLanguageParser.EqualityExpressionContext>())
+                .Select(x => (object)x.Parent)
                 .Select(GetRelationalExpression)
                 .ToList();
 
@@ -44,7 +44,7 @@ namespace Prometheus.Services.Service {
         public List<RelationalExpression> GetConditionRelations(CLanguageParser.SelectionStatementContext context) {
             List<RelationalExpression> relationalExpressions = context
                 .expression()
-                .GetLeafDescendants(x => x is CLanguageParser.EqualityExpressionContext)
+                .GetLeafDescendants<CLanguageParser.EqualityExpressionContext>()
                 .Select(x => (object)x.Parent)
                 .Select(GetRelationalExpression)
                 .ToList();
@@ -55,6 +55,7 @@ namespace Prometheus.Services.Service {
         public List<RelationalExpression> GetAssignmentRelations(CLanguageParser.FunctionDefinitionContext context) {
             var relations = context
                 .GetDescendants<CLanguageParser.AssignmentExpressionContext>()
+                .Where(x => x.ChildCount > 1)
                 .Select(GetRelationalExpression)
                 .ToList();
 

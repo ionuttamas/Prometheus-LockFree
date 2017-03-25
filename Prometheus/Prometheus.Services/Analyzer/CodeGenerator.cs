@@ -68,7 +68,7 @@ namespace Prometheus.Services {
 
             string variablesSnapshot = GetVariablesSnapshot(relations);
             string snapshotFlagCheck = GetSnapshotsFlagCheckExpression(relations);
-            InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(index, $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}");
+            InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(index+1, $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}");
             List<IDeclaration> conditionReplacements = GetConditionReplacements(conditionRelations);
             List<IDeclaration> assignmentReplacements = GetAssignmentsReplacements(assignmentRelations);
 
@@ -295,6 +295,9 @@ namespace Prometheus.Services {
 
             foreach (var relation in relations)
             {
+                if(relation.LeftOperandSnapshot==null && relation.RightOperandSnapshot==null)
+                    continue;
+
                 var startIndex = relation.LeftOperandInterval.Start;
                 var endIndex = relation.RightOperandInterval.End;
                 var casConditions = GetCasCondition(relation, _dataStructure.GetRegionCode(method, startIndex));
