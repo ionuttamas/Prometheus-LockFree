@@ -23,6 +23,7 @@ namespace Prometheus.Services {
         private readonly RelationService _relationService;
         private readonly CodeUpdateTable _updateTable;
 
+        public string CodeInput { get; private set; }
         public string CodeOutput { get; private set; }
 
         public CodeGenerator(DataStructure dataStructure, RelationService relationService)
@@ -59,18 +60,22 @@ namespace Prometheus.Services {
                 .Where(x => x != null)
                 .ToList();
             //todo: this is not right: tail = head->next; if a check is made for head
-            assignmentRelations
-                .RemoveAll(x => nullCheckOperands.Any(op => x.LeftOperand.ContainsInvariant($"{op}{POINTER_ACCESS_MARKER}") ||
-                                                            x.RightOperand.ContainsInvariant($"{op}{POINTER_ACCESS_MARKER}")));
+            //todo: further reconsider this: in the case of a "check null and return", further assignments can be replaced with old* correspondents
+            //assignmentRelations
+            //    .RemoveAll(x => nullCheckOperands.Any(op => x.LeftOperand.ContainsInvariant($"{op}{POINTER_ACCESS_MARKER}") ||
+            //                                                x.RightOperand.ContainsInvariant($"{op}{POINTER_ACCESS_MARKER}")));
             var relations = new List<RelationalExpression>();
             relations.AddRange(conditionRelations);
             relations.AddRange(assignmentRelations);
 
             string variablesSnapshot = GetVariablesSnapshot(relations);
             string snapshotFlagCheck = GetSnapshotsFlagCheckExpression(relations);
-            InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(index+1, $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}");
+
+            //todo: fix indenting
+            //var indent = index - CodeInput.Substring(0, index).InvariantLastIndexOf(Environment.NewLine);
+            InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(index+1, $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}".Indent(51));
             List<IDeclaration> conditionReplacements = GetConditionReplacements(conditionRelations);
-            List<IDeclaration> assignmentReplacements = GetAssignmentsReplacements(assignmentRelations);
+            List<IDeclaration> assignmentReplacements = GetCasAssignmentsReplacements(assignmentRelations);
 
             _updateTable.Add(snapshotAndCheckInsertion);
             conditionReplacements.ForEach(_updateTable.Add);
@@ -111,6 +116,7 @@ namespace Prometheus.Services {
 */
         protected override void PreVisit(IParseTree tree, string input)
         {
+            CodeInput = input;
         }
 
         protected override void PostVisit(IParseTree tree, string input)
@@ -285,7 +291,7 @@ namespace Prometheus.Services {
             return result;
         }
 
-        private List<IDeclaration> GetAssignmentsReplacements(List<RelationalExpression> relations)
+        private List<IDeclaration> GetCasAssignmentsReplacements(List<RelationalExpression> relations)
         {
             if (!relations.Any())
                 return new List<IDeclaration>();
@@ -357,6 +363,9 @@ namespace Prometheus.Services {
                 // The assigned variable is linked to the global state
                 var snapshot = relation.RightOperandSnapshot;
                 result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, snapshot.SnapshotVariable, regionCode);
+
+                snapshot = relation.LeftOperandSnapshot;
+                result += Environment.NewLine + string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode);
             }
 
             return result;

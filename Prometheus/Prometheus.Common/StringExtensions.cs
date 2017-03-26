@@ -1,10 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Prometheus.Common {
     public static class StringExtensions {
         private static readonly Regex DuplicateSpacesRegex = new Regex(@"[ ]{2,}", RegexOptions.None);
+
+        public static string Indent(this string text, int offset)
+        {
+            var indentString = new string(' ', offset);
+            var result = string.Join(Environment.NewLine, text.Split(Environment.NewLine).Select(x => indentString + x));
+
+            return result;
+        }
 
         public static string InsertAt(this string text, int index, string value)
         {

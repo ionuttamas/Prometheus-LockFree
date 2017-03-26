@@ -276,93 +276,6 @@ namespace Prometheus.Services.UnitTests
         {
             get
             {
-                #region comm
-                /*#region First case
-                yield return new TestCaseData(@"struct node {
-                                                   int data;
-                                                   struct node *next;
-                                                };
-
-                                                struct node * head = NULL;
-                                                struct node * tail = NULL;
-
-                                                void enqueue(int data) {
-                                                    struct node* temp = (struct node*)malloc(sizeof(struct node));
-
-                                                    temp->data = data;
-                                                    temp->next = NULL;
-
-                                                    if (head == NULL && tail == NULL){
-                                                        head = temp;
-                                                        tail = temp;
-                                                        return;
-                                                    }
-                                                    tail->next = temp;
-                                                    tail = temp;
-                                                }
-
-                                                int dequeue() {
-                                                    struct node* temp = head;
-
-                                                    if(head == NULL) {
-                                                        printf(""Queue is Empty"");
-                                                        return;
-                                                    }
-
-                                                    int result = temp->data;
-
-                                                    if (head == tail) {
-                                                        head = tail = NULL;
-                                                        return result;
-                                                    }
-
-                                                    head = head->next;
-                                                    return result;
-                                                }
-                                                ",
-                                                new[] {
-                                               "struct node * oldHead = head;",
-                                               "struct node * oldTail = tail;",
-                                                });
-                #endregion
-
-                #region Third case
-                yield return new TestCaseData(@"
-                                                struct node {
-                                                   int data;
-                                                   struct node *next;
-                                                };
-
-                                                struct node * head = NULL;
-                                                struct node * tail = NULL;
-
-                                                int dequeue() {
-                                                    struct node* temp = head;
-
-                                                    if(head == NULL) {
-                                                        printf(""Queue is Empty"");
-                                                        return;
-                                                    }
-
-                                                    int result = temp->data;
-
-                                                    if(head == tail) {
-                                                        head = tail = NULL;
-                                                        return result;
-                                                    }
-
-                                                    head = head->next;
-                                                    return result;
-                                                }
-                                                ",
-                                                new[] {
-                                               "struct node * oldHead = head;",
-                                               "struct node * oldTail = tail;",
-                                                });
-                #endregion*/
-
-                #endregion
-
                 #region First case
                 yield return new TestCaseData(@"
                                                 struct node {
@@ -412,7 +325,7 @@ namespace Prometheus.Services.UnitTests
                                                         return;
                                                     }
 
-                                                    int result = temp->data;
+                                                    int result = head->data;
 
                                                     if(head == tail) {
                                                         head = NULL;
@@ -426,6 +339,55 @@ namespace Prometheus.Services.UnitTests
                                                 new[] {
                                                    "struct node * oldHead = head;",
                                                    "struct node * oldTail = tail;"
+                                                });
+                #endregion
+
+                #region Third case
+                yield return new TestCaseData(@"
+                                                struct node {
+                                                   int data;
+                                                   struct node *next;
+                                                };
+
+                                                struct node * head = NULL;
+                                                struct node * tail = NULL;
+
+                                                void enqueue(int data) {
+                                                    struct node* temp = (struct node*)malloc(sizeof(struct node));
+
+                                                    temp->data = data;
+                                                    temp->next = NULL;
+
+                                                    if (head == NULL && tail == NULL){
+                                                        head = temp;
+                                                        tail = temp;
+                                                        return;
+                                                    }
+                                                    tail->next = temp;
+                                                    tail = temp;
+                                                }
+
+                                                int dequeue() {
+                                                    if(head == NULL) {
+                                                        printf(""Queue is Empty"");
+                                                        return;
+                                                    }
+
+                                                    int result = head->data;
+
+                                                    if (head == tail) {
+                                                        head = NULL;
+                                                        tail = NULL;
+                                                        return result;
+                                                    }
+
+                                                    head = head->next;
+                                                    return result;
+                                                }
+                                                ",
+                                                new[] {
+                                               "struct node * oldHead = head;",
+                                               "struct node * oldTail = tail;"
                                                 });
                 #endregion
             }
