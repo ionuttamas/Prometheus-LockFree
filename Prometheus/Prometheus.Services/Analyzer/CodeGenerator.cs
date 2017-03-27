@@ -55,6 +55,7 @@ namespace Prometheus.Services {
         {
             List<RelationalExpression> conditionRelations = _relationService.GetConditionRelations(context);
             List<RelationalExpression> assignmentRelations = _relationService.GetAssignmentRelations(context);
+            List<RelationalExpression> initDeclarationRelations = _relationService.GetInitializationRelations(context);
             List<string> nullCheckOperands = conditionRelations
                 .Select(x => x.RightOperand == NULL_TOKEN ? x.LeftOperand : (x.LeftOperand == NULL_TOKEN ? x.RightOperand : null))
                 .Where(x => x != null)
@@ -76,10 +77,12 @@ namespace Prometheus.Services {
             InsertionDeclaration snapshotAndCheckInsertion = new InsertionDeclaration(index+1, $"{variablesSnapshot}{Environment.NewLine}{snapshotFlagCheck}".Indent(51));
             List<IDeclaration> conditionReplacements = GetConditionReplacements(conditionRelations);
             List<IDeclaration> assignmentReplacements = GetCasAssignmentsReplacements(assignmentRelations);
+            List<IDeclaration> initReplacements = GetInitDeclarationsReplacements(initDeclarationRelations);
 
             _updateTable.Add(snapshotAndCheckInsertion);
             conditionReplacements.ForEach(_updateTable.Add);
             assignmentReplacements.ForEach(_updateTable.Add);
+            initReplacements.ForEach(_updateTable.Add);
         }
 
         /*//todo: we should extract all assignments not only those per selection statement
@@ -268,6 +271,21 @@ namespace Prometheus.Services {
                 snapshotVariables.Select(x => $"if(GETFLAG({x})!={UNMARKED_POINTER}) {{ HELP HERE; continue; }}"));
 
             return checkExpression;
+        }
+
+        private List<IDeclaration> GetInitDeclarationsReplacements(List<RelationalExpression> relations)
+        {
+            var result = new List<IDeclaration>();
+
+            foreach (var relation in relations)
+            {
+                var rightOperandReplacement = GetReplacementDeclaration(relation.RightOperand, relation.RightOperandInterval, relation.Method);
+
+                if (rightOperandReplacement != null)
+                    result.Add(rightOperandReplacement);
+            }
+
+            return result;
         }
 
         private List<IDeclaration> GetConditionReplacements(List<RelationalExpression> relations)

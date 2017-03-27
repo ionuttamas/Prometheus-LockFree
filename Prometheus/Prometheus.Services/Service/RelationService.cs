@@ -26,7 +26,8 @@ namespace Prometheus.Services.Service {
             _relationExtractors = new Dictionary<Type, Func<object, RelationalExpression>>
             {
                 { typeof(CLanguageParser.EqualityExpressionContext), x => GetRelationalExpression((CLanguageParser.EqualityExpressionContext) x)},
-                { typeof(CLanguageParser.AndExpressionContext), x => GetRelationalExpression((CLanguageParser.AndExpressionContext) x)}
+                { typeof(CLanguageParser.AndExpressionContext), x => GetRelationalExpression((CLanguageParser.AndExpressionContext) x)},
+                { typeof(CLanguageParser.InitDeclaratorContext), x => GetRelationalExpression((CLanguageParser.InitDeclaratorContext) x)}
             };
         }
 
@@ -52,9 +53,26 @@ namespace Prometheus.Services.Service {
             return relationalExpressions;
         }
 
-        public List<RelationalExpression> GetAssignmentRelations(CLanguageParser.FunctionDefinitionContext context) {
+        public List<RelationalExpression> GetAssignmentRelations(CLanguageParser.FunctionDefinitionContext context)
+        {
             var relations = context
                 .GetDescendants<CLanguageParser.AssignmentExpressionContext>()
+                .Where(x => x.ChildCount > 1)
+                .Select(GetRelationalExpression)
+                .ToList();
+
+            /*relations.AddRange(context
+                .GetDescendants<CLanguageParser.InitDeclaratorContext>()
+                .Where(x => x.ChildCount > 1)
+                .Select(GetRelationalExpression));*/
+
+            return relations;
+        }
+
+        public List<RelationalExpression> GetInitializationRelations(CLanguageParser.FunctionDefinitionContext context)
+        {
+            var relations = context
+                .GetDescendants<CLanguageParser.InitDeclaratorContext>()
                 .Where(x => x.ChildCount > 1)
                 .Select(GetRelationalExpression)
                 .ToList();
@@ -111,6 +129,24 @@ namespace Prometheus.Services.Service {
             return result;
         }
 
+        private RelationalExpression GetRelationalExpression(CLanguageParser.InitDeclaratorContext context) {
+            var leftExpression = context.declarator().directDeclarator();
+            var rightExpression = context.initializer();
+            var method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName();
+
+            var result = new RelationalExpression {
+                LeftOperand = leftExpression.GetText(),
+                RightOperand = rightExpression.GetText(),
+                LeftOperandSnapshot = GetSnapshotDeclaration(leftExpression.GetText(), method),
+                RightOperandSnapshot = GetSnapshotDeclaration(rightExpression.GetText(), method),
+                LeftOperandInterval = new Interval(leftExpression.GetStartIndex(), leftExpression.GetStopIndex()),
+                RightOperandInterval = new Interval(rightExpression.GetStartIndex(), rightExpression.GetStopIndex()),
+                Method = method
+            };
+
+            return result;
+        }
+
         private RelationalExpression GetRelationalExpression(CLanguageParser.AssignmentExpressionContext context) {
             var leftExpression = context.unaryExpression();
             var rightExpression = context.assignmentExpression();
@@ -123,7 +159,7 @@ namespace Prometheus.Services.Service {
                 RightOperandSnapshot = GetSnapshotDeclaration(rightExpression.GetText(), method),
                 LeftOperandInterval = new Interval(leftExpression.GetStartIndex(), leftExpression.GetStopIndex()),
                 RightOperandInterval = new Interval(rightExpression.GetStartIndex(), rightExpression.GetStopIndex()),
-                Method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
+                Method = method
             };
 
             return result;
@@ -141,7 +177,7 @@ namespace Prometheus.Services.Service {
                 RightOperandSnapshot = GetSnapshotDeclaration(rightExpression.GetText(), method),
                 LeftOperandInterval = new Interval(leftExpression.GetStartIndex(), leftExpression.GetStopIndex()),
                 RightOperandInterval = new Interval(rightExpression.GetStartIndex(), rightExpression.GetStopIndex()),
-                Method = context.GetFunction().GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>().GetName()
+                Method = method
             };
 
             return result;
@@ -157,6 +193,9 @@ namespace Prometheus.Services.Service {
 
                 if (!_typeService.IsPointer(type)) {
                     int pointerIndex = expression.InvariantLastIndexOf(POINTER_ACCESS_MARKER);
+                    if (pointerIndex < 0)
+                        return null;
+
                     expression = expression.Substring(0, pointerIndex);
                     type = _typeService.GetType(expression, operation);
                 }

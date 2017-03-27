@@ -85,7 +85,7 @@ namespace Prometheus.Services
                 List<string> dependentTokens = context
                     .assignmentExpression()
                     .GetDescendants<CLanguageParser.PrimaryExpressionContext>()
-                    .Select(x => ((CLanguageParser.PrimaryExpressionContext)x).GetName())
+                    .Select(x => x.GetName())
                     .ToList();
                 string variableName = operand.GetName();
 
@@ -97,6 +97,36 @@ namespace Prometheus.Services
             }
 
             return base.VisitAssignmentExpression(context);
+        }
+
+        public override object VisitInitDeclarator(CLanguageParser.InitDeclaratorContext context) {
+            if (context.ChildCount == 3)
+            {
+                var function = context.GetFunction();
+                if (function == null)
+                    return base.VisitInitDeclarator(context);
+
+                var functionName = function
+                    .GetFirstDescendant<CLanguageParser.DirectDeclaratorContext>()
+                    .GetName();
+                var operand = context
+                    .declarator()
+                    .directDeclarator();
+                List<string> dependentTokens = context
+                    .initializer()
+                    .GetDescendants<CLanguageParser.PrimaryExpressionContext>()
+                    .Select(x => x.GetName())
+                    .ToList();
+                string variableName = operand.GetName();
+
+                if (DataStructure[functionName] != null && DataStructure[functionName][variableName] == null) {
+                    return base.VisitInitDeclarator(context);
+                }
+
+                DataStructure[functionName].AddVariable(variableName, string.Empty, dependentTokens, context.Start.StartIndex);
+            }
+
+            return base.VisitInitDeclarator(context);
         }
 
         public override object VisitDirectDeclarator(CLanguageParser.DirectDeclaratorContext context) {
@@ -131,7 +161,7 @@ namespace Prometheus.Services
                         .Parent
                         .Parent
                         .GetDescendants<CLanguageParser.PrimaryExpressionContext>()
-                        .Select(x => ((CLanguageParser.PrimaryExpressionContext) x).GetName())
+                        .Select(x => x.GetName())
                         .ToList();
                 }
                 else
