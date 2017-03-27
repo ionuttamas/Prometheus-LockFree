@@ -362,7 +362,7 @@ namespace Prometheus.Services {
 
         private static string GetCasCondition(RelationalExpression relation, int regionCode)
         {
-            var casConditionFormat = "if(!CAS({0}, {1}, FLAG({2}, {3})) {{ HELP HERE; continue; }}";
+            var casConditionFormat = "if(!CAS({0}, {1}, FLAG({2}, {3})) {{ continue; }}";
             var result = string.Empty;
 
             if (relation.RightOperand == NULL_TOKEN)
