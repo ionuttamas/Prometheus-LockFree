@@ -191,7 +191,7 @@ namespace Prometheus.Services {
             foreach (var structure in _dataStructure.Structures)
             {
                 int structInsertIndex = structure.Context.structDeclarationList().GetStartIndex();
-                string value = $"struct {structure.Name} * expected;";
+                string value = $"struct {structure.Name} * old;{Environment.NewLine}struct {structure.Name} * expected;";
                 _updateTable.Add(new InsertionDeclaration(structInsertIndex, value));
             }
         }
@@ -362,8 +362,13 @@ namespace Prometheus.Services {
 
         private static string GetCasCondition(RelationalExpression relation, int regionCode)
         {
-            var casConditionFormat = "if(!CAS({0}, {1}, FLAG({2}, {3})) {{ continue; }}";
+            var casConditionFormat = "if(!CAS({0}, {1}, FLAG({2}, {3})) {{ {4}; continue; }}";
             var result = string.Empty;
+
+            //relation.PreviousRelations
+            //    .SelectMany(x=>new [] {x.LeftOperandSnapshot, x.RightOperandSnapshot})
+            //    .Where(x=>x!=null)
+            //    .Select(x=>$"CAS({x.Variable},{x.})")
 
             if (relation.RightOperand == NULL_TOKEN)
             {

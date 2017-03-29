@@ -77,6 +77,16 @@ namespace Prometheus.Services.Service {
                 .Select(GetRelationalExpression)
                 .ToList();
 
+            foreach (var relation in relations)
+            {
+                //todo: this is incorrect since we need to track only those relations from the root to this relation;
+                //todo "if (condition) {1} else {2;3}" => for relation "3" we don't track relation "1"
+                relation.PreviousRelations = relations
+                    .Where(x => x.LeftOperandSnapshot != null || x.RightOperandSnapshot != null)
+                    .Where(x => x.RightOperandInterval.End <= relation.LeftOperandInterval.Start)
+                    .ToList();
+            }
+
             return relations;
         }
 
