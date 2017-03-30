@@ -11,7 +11,7 @@ namespace Prometheus.Services.Service
         public Interval RightOperandInterval { get; set; }
         public string Method { get; set; }
         public List<RelationalExpression> PreviousRelations { get; set; }
-        
+
         public override string ToString()
         {
             return $"{LeftOperand} {RightOperand}";

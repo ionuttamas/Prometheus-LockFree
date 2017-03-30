@@ -360,35 +360,53 @@ namespace Prometheus.Services {
             return null;
         }
 
-        private static string GetCasCondition(RelationalExpression relation, int regionCode)
+        private string GetCasCondition(RelationalExpression relation, int regionCode)
         {
-            var casConditionFormat = "if(!CAS({0}, {1}, FLAG({2}, {3})) {{ {4}; continue; }}";
+            var casConditionFormat = "if(!CAS({0}, {1}, FLAG({2}, {3})) {{ {4} continue; "+Environment.NewLine+"}}";
+            var casUndoFormat = "CAS({0}, FLAG({1}, {2}), {3});";
             var result = string.Empty;
+            var undoOperations = string.Empty;
 
-            //relation.PreviousRelations
-            //    .SelectMany(x=>new [] {x.LeftOperandSnapshot, x.RightOperandSnapshot})
-            //    .Where(x=>x!=null)
-            //    .Select(x=>$"CAS({x.Variable},{x.})")
+            foreach (var previousRelation in relation.PreviousRelations)
+            {
+                var previousRelationRegionCode = _dataStructure.GetRegionCode(previousRelation.Method, previousRelation.LeftOperandInterval.Start);
+
+                if (previousRelation.RightOperand == NULL_TOKEN) {
+                    var snapshot = previousRelation.LeftOperandSnapshot;
+                    undoOperations += Environment.NewLine + string.Format(casUndoFormat, snapshot.Variable, previousRelation.RightOperand, previousRelationRegionCode, snapshot.SnapshotVariable)+Environment.NewLine;
+                } else if (previousRelation.RightOperandSnapshot == null) {
+                    // The assigned variable is not linked to the global state
+                    var snapshot = previousRelation.LeftOperandSnapshot;
+                    undoOperations += Environment.NewLine + string.Format(casUndoFormat, snapshot.Variable, previousRelation.RightOperand, previousRelationRegionCode, snapshot.SnapshotVariable) + Environment.NewLine;
+                } else {
+                    // The assigned variable is linked to the global state
+                    var snapshot = previousRelation.RightOperandSnapshot;
+                    undoOperations += Environment.NewLine + string.Format(casUndoFormat, snapshot.Variable, snapshot.SnapshotVariable, previousRelationRegionCode, snapshot.SnapshotVariable) + Environment.NewLine;
+
+                    snapshot = previousRelation.LeftOperandSnapshot;
+                    undoOperations += string.Format(casUndoFormat, snapshot.Variable, previousRelation.RightOperand, previousRelationRegionCode, snapshot.SnapshotVariable) + Environment.NewLine;
+                }
+            }
 
             if (relation.RightOperand == NULL_TOKEN)
             {
                 var snapshot = relation.LeftOperandSnapshot;
-                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode);
+                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode, undoOperations);
             }
             else if (relation.RightOperandSnapshot == null)
             {
                 // The assigned variable is not linked to the global state
                 var snapshot = relation.LeftOperandSnapshot;
-                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode);
+                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode, undoOperations);
             }
             else
             {
                 // The assigned variable is linked to the global state
                 var snapshot = relation.RightOperandSnapshot;
-                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, snapshot.SnapshotVariable, regionCode);
+                result += string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, snapshot.SnapshotVariable, regionCode, undoOperations);
 
                 snapshot = relation.LeftOperandSnapshot;
-                result += Environment.NewLine + string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode);
+                result += Environment.NewLine + string.Format(casConditionFormat, snapshot.Variable, snapshot.SnapshotVariable, relation.RightOperand, regionCode, undoOperations);
             }
 
             return result;

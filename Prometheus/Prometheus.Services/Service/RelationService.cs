@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using Antlr4.Runtime;
 using Prometheus.Common;
 using Prometheus.Services.Extensions;
 using Prometheus.Services.Model;
@@ -61,10 +58,14 @@ namespace Prometheus.Services.Service {
                 .Select(GetRelationalExpression)
                 .ToList();
 
-            /*relations.AddRange(context
-                .GetDescendants<CLanguageParser.InitDeclaratorContext>()
-                .Where(x => x.ChildCount > 1)
-                .Select(GetRelationalExpression));*/
+            foreach (var relation in relations) {
+                //todo: this is incorrect since we need to track only those relations from the root to this relation;
+                //todo "if (condition) {1} else {2;3}" => for relation "3" we don't track relation "1"
+                relation.PreviousRelations = relations
+                    .Where(x => x.LeftOperandSnapshot != null || x.RightOperandSnapshot != null)
+                    .Where(x => x.RightOperandInterval.End <= relation.LeftOperandInterval.Start)
+                    .ToList();
+            }
 
             return relations;
         }
@@ -76,16 +77,6 @@ namespace Prometheus.Services.Service {
                 .Where(x => x.ChildCount > 1)
                 .Select(GetRelationalExpression)
                 .ToList();
-
-            foreach (var relation in relations)
-            {
-                //todo: this is incorrect since we need to track only those relations from the root to this relation;
-                //todo "if (condition) {1} else {2;3}" => for relation "3" we don't track relation "1"
-                relation.PreviousRelations = relations
-                    .Where(x => x.LeftOperandSnapshot != null || x.RightOperandSnapshot != null)
-                    .Where(x => x.RightOperandInterval.End <= relation.LeftOperandInterval.Start)
-                    .ToList();
-            }
 
             return relations;
         }
